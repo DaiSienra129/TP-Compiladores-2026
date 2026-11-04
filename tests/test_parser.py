@@ -1,6 +1,7 @@
 """Tests de caracterización de RegexParser: precedencia, estructura y errores de sintaxis."""
 import pytest
 
+from errors import RegexSyntaxError
 from lexer import RegexLexer
 from parser import RegexParser
 from ast_nodes import (
@@ -55,6 +56,7 @@ a, b, c = ("lit", "a"), ("lit", "b"), ("lit", "c")
     ("[ab]c", ("concat", ("class", frozenset("ab")), c)),
     # los operadores unarios apilados se anidan; es inofensivo, por lo que se fija tal cual
     ("a**", ("star", ("star", a))),
+    ("a+?", ("opt", ("plus", a))),
 ])
 def test_parse_tree(pattern, expected):
     assert shape(parse(pattern)) == expected
@@ -68,7 +70,33 @@ def test_wildcard_parses_as_class_between_literals():
     assert inner[2][0] == "class" and len(inner[2][1]) == 255
 
 
-@pytest.mark.parametrize("pattern", ["a|", "|a", "()", "(a", "a)", "*a", ""])
-def test_syntax_errors(pattern):
-    with pytest.raises(ValueError):
+@pytest.mark.parametrize("pattern, pos", [
+    ("a|", 2),   # EOF donde se esperaba un término
+    ("|a", 0),
+    ("()", 1),
+    ("*a", 0),
+    ("", 0),
+    ("a)", 1),   # ')' sobrante
+    ("(a", 2),   # EOF donde se esperaba ')'
+    ("a(b", 3),
+])
+def test_syntax_errors_have_type_and_position(pattern, pos):
+    with pytest.raises(RegexSyntaxError) as info:
         parse(pattern)
+    assert isinstance(info.value, ValueError)
+    assert info.value.pos == pos
+
+
+@pytest.mark.parametrize("pattern, open_pos", [("(a", 0), ("a(b", 1)])
+def test_missing_close_paren_mentions_opening_position(pattern, open_pos):
+    with pytest.raises(RegexSyntaxError) as info:
+        parse(pattern)
+    assert f"posición {open_pos}" in info.value.message
+    assert "')'" in info.value.message
+
+
+def test_unexpected_token_is_named_readably():
+    with pytest.raises(RegexSyntaxError) as info:
+        parse("a)")
+    assert "')'" in str(info.value)
+    assert "Token(" not in str(info.value)

@@ -21,4 +21,9 @@ class LexicalError(CompilerError, ValueError):
     """
 
 
-# TODO (T3): agregar un equivalente de SyntaxError (p. ej. RegexSyntaxError) para el parser.
+class RegexSyntaxError(CompilerError, ValueError):
+    """Entrada inválida al combinar tokens según la gramática (análisis sintáctico).
+
+    La posición apunta al token que provocó el error. También es un ValueError
+    por compatibilidad con el código que capturaba errores genéricos.
+    """

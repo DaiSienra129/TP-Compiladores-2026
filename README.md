@@ -40,6 +40,57 @@ Expresión Regular (.regex)
 
 ---
 
+## 📐 Gramática del lenguaje de entrada
+
+```text
+expr    → subexpr ('|' subexpr)*
+subexpr → factor factor*
+factor  → atom ('*' | '+' | '?')*
+atom    → CHAR | CLASS | '(' expr ')'
+```
+
+`CHAR` cubre los literales y los escapes; `CLASS` cubre las clases `[...]` y el comodín `.`.
+
+### Precedencia y asociatividad
+
+| Nivel | Operador | Asociatividad |
+|-------|----------|---------------|
+| 1 (mayor) | Cuantificadores unarios `*` `+` `?` | izquierda |
+| 2 | Concatenación (implícita) | izquierda |
+| 3 (menor) | Unión `\|` | izquierda |
+
+### Análisis sintáctico
+
+La gramática es LL(1) y el parser es descendente recursivo (una función por no terminal). Con `$` como fin de la entrada (token `EOF` del lexer):
+
+| No terminal | PRIMERO | SIGUIENTE |
+|-------------|-------|--------|
+| `expr` | `CHAR`, `CLASS`, `(` | `)`, `$` |
+| `subexpr` | `CHAR`, `CLASS`, `(` | `\|`, `)`, `$` |
+| `factor` | `CHAR`, `CLASS`, `(` | `CHAR`, `CLASS`, `(`, `\|`, `)`, `$` |
+| `atom` | `CHAR`, `CLASS`, `(` | `*`, `+`, `?`, `CHAR`, `CLASS`, `(`, `\|`, `)`, `$` |
+
+### Sintaxis soportada
+
+* Literales (`a`, `Z`, `7`) y escapes: `\n` (salto de línea), `\t` (tabulación) y `\` seguido de cualquier otro carácter lo vuelve literal (`\.`, `\*`, `\{`).
+* Comodín `.` (cualquier carácter salvo `\n`).
+* Clases de caracteres con rangos: `[abc]`, `[a-zA-Z0-9_]`.
+* Unión `|`, cuantificadores `*`, `+`, `?` y agrupación con paréntesis.
+
+### No soportada (error léxico)
+
+* Clases negadas `[^...]`.
+* Cuantificadores acotados `{m,n}`.
+
+### Ejemplo de error sintáctico
+
+```text
+(a
+Error sintáctico: falta el paréntesis de cierre ')' para el '(' de la posición 0 (posición 2)
+```
+
+---
+
 ## 💻 Entorno de Desarrollo y Requisitos
 
 ### Host (Máquina de desarrollo)

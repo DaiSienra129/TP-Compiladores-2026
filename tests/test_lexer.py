@@ -5,8 +5,15 @@ from errors import LexicalError
 from lexer import RegexLexer, TokenType as T
 
 
-def tokenize(pattern):
+def tokenize_with_eof(pattern):
     return RegexLexer(pattern).tokenize()
+
+
+def tokenize(pattern):
+    """Tokeniza y descarta el EOF final para comparar solo los tokens del patrón."""
+    tokens = tokenize_with_eof(pattern)
+    assert tokens[-1].type == T.EOF
+    return tokens[:-1]
 
 
 def single_token(pattern):
@@ -201,3 +208,20 @@ def test_lexical_error_is_still_a_value_error():
     with pytest.raises(ValueError):
         tokenize("[abc")
     assert issubclass(LexicalError, ValueError)
+
+
+# --- Token de fin de entrada ------------------------------------------------------
+
+@pytest.mark.parametrize("pattern", ["", "a", "ab|c*", "(a)", "[a-z]\\n", "."])
+def test_eof_is_always_last_at_end_of_pattern(pattern):
+    tokens = tokenize_with_eof(pattern)
+    eofs = [t for t in tokens if t.type == T.EOF]
+    assert len(eofs) == 1
+    assert tokens[-1] == eofs[0]
+    assert tokens[-1].value is None
+    assert tokens[-1].pos == len(pattern)
+
+
+def test_empty_pattern_yields_only_eof():
+    tokens = tokenize_with_eof("")
+    assert [(t.type, t.pos) for t in tokens] == [(T.EOF, 0)]

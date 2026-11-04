@@ -1,9 +1,44 @@
 # src/parser.py
+"""Parser descendente recursivo para expresiones regulares.
+
+Gramática (LL(1)), una función por no terminal:
+
+    expr    → subexpr ('|' subexpr)*
+    subexpr → factor factor*
+    factor  → atom ('*' | '+' | '?')*
+    atom    → CHAR | CLASS | '(' expr ')'
+
+CHAR cubre literales y escapes; CLASS cubre '[...]' y el comodín '.'.
+El token EOF del lexer actúa como marcador de fin de entrada '$'.
+Todo error de sintaxis se informa como RegexSyntaxError con la posición del
+token que lo provocó.
+"""
+from errors import RegexSyntaxError
 from lexer import TokenType
 from ast_nodes import (
-    LiteralNode, ClassNode, ConcatNode, UnionNode, 
+    LiteralNode, ClassNode, ConcatNode, UnionNode,
     KleeneNode, PlusNode, OptionNode
 )
+
+# Texto legible de cada tipo de token para los mensajes de error.
+TOKEN_SYMBOLS: dict[TokenType, str] = {
+    TokenType.PIPE: "'|'",
+    TokenType.STAR: "'*'",
+    TokenType.PLUS: "'+'",
+    TokenType.QUESTION: "'?'",
+    TokenType.LPAREN: "'('",
+    TokenType.RPAREN: "')'",
+    TokenType.EOF: "fin de la expresión",
+    TokenType.CLASS: "clase de caracteres",
+}
+
+
+def describe_token(token) -> str:
+    """Devuelve una descripción legible del token para usar en mensajes de error."""
+    if token.type == TokenType.CHAR:
+        return f"literal {token.value!r}"
+    return TOKEN_SYMBOLS[token.type]
+
 
 class RegexParser:
     """Parser descendente recursivo: convierte tokens en un Árbol AST."""
@@ -12,25 +47,27 @@ class RegexParser:
         self.pos = 0
 
     def peek(self):
-        """Mira el token actual sin avanzarlo."""
-        if self.pos < len(self.tokens):
-            return self.tokens[self.pos]
-        return None
+        """Mira el token actual sin avanzarlo (el último token es siempre EOF)."""
+        return self.tokens[self.pos]
 
     def match(self, token_type):
         """Avanza y devuelve el token si coincide con el tipo esperado."""
         token = self.peek()
-        if token and token.type == token_type:
-            self.pos += 1
+        if token.type == token_type:
+            # EOF nunca se consume: peek() debe seguir devolviendo un token.
+            if token_type != TokenType.EOF:
+                self.pos += 1
             return token
         return None
 
     def parse(self):
-        """Punto de entrada principal del parser."""
+        """Punto de entrada principal del parser: una expresión seguida de EOF."""
         ast = self._parse_expression()
-        if self.pos < len(self.tokens):
-            token_sobrante = self.tokens[self.pos]
-            raise ValueError(f"Error sintáctico: token no esperado '{token_sobrante}'")
+        token = self.peek()
+        if token.type != TokenType.EOF:
+            raise RegexSyntaxError(
+                f"Error sintáctico: token no esperado {describe_token(token)}",
+                token.pos)
         return ast
 
     def _parse_expression(self):
@@ -44,11 +81,15 @@ class RegexParser:
     def _parse_subexpr(self):
         """Nivel 2: Concatenación implícita de términos."""
         factors = []
-        while self.peek() and self.peek().type not in (TokenType.PIPE, TokenType.RPAREN):
+        while self.peek().type not in (TokenType.PIPE, TokenType.RPAREN, TokenType.EOF):
             factors.append(self._parse_factor())
-        
+
         if not factors:
-            raise ValueError("Error sintáctico: se esperaba un término o expresión")
+            token = self.peek()
+            raise RegexSyntaxError(
+                "Error sintáctico: se esperaba un término, "
+                f"pero se encontró {describe_token(token)}",
+                token.pos)
 
         result = factors[0]
         for next_factor in factors[1:]:
@@ -72,8 +113,6 @@ class RegexParser:
     def _parse_atom(self):
         """Nivel 4: Átomos primarios (caracteres, clases o paréntesis)."""
         token = self.peek()
-        if not token:
-            raise ValueError("Error sintáctico: fin de expresión inesperado")
 
         if self.match(TokenType.CHAR):
             return LiteralNode(token.value)
@@ -82,7 +121,14 @@ class RegexParser:
         elif self.match(TokenType.LPAREN):
             expr = self._parse_expression()
             if not self.match(TokenType.RPAREN):
-                raise ValueError("Error sintáctico: falta el paréntesis de cierre ')'")
+                closing = self.peek()
+                raise RegexSyntaxError(
+                    "Error sintáctico: falta el paréntesis de cierre ')' "
+                    f"para el '(' de la posición {token.pos}",
+                    closing.pos)
             return expr
         else:
-            raise ValueError(f"Error sintáctico: token no reconocido '{token.type.name}'")
+            raise RegexSyntaxError(
+                "Error sintáctico: se esperaba un carácter, una clase o '(', "
+                f"pero se encontró {describe_token(token)}",
+                token.pos)
