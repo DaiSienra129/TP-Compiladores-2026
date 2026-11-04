@@ -300,3 +300,46 @@ def test_eof_is_always_last_at_end_of_pattern(pattern):
 def test_empty_pattern_yields_only_eof():
     tokens = tokenize_with_eof("")
     assert [(t.type, t.pos) for t in tokens] == [(T.EOF, 0)]
+
+
+# --- Referencias a definiciones {NOMBRE} -----------------------------------------
+
+def test_reference_is_ref_token_with_name_and_position():
+    token = single_token("{DIGITO}")
+    assert (token.type, token.value, token.pos) == (T.REF, "DIGITO", 0)
+
+
+def test_reference_between_literals():
+    tokens = tokenize("a{X_1}b")
+    assert [(t.type, t.value, t.pos) for t in tokens] == [
+        (T.CHAR, "a", 0), (T.REF, "X_1", 1), (T.CHAR, "b", 6)]
+
+
+def test_reference_may_start_with_underscore():
+    assert single_token("{_a}").value == "_a"
+
+
+@pytest.mark.parametrize("pattern", ["a{2}", "a{2,3}", "a{}", "a{1A}"])
+def test_bounded_quantifier_forms_remain_errors_at_brace(pattern):
+    with pytest.raises(LexicalError) as exc:
+        tokenize(pattern)
+    assert exc.value.pos == 1
+    assert "cuantificadores acotados" in exc.value.message
+
+
+@pytest.mark.parametrize("pattern, pos", [("{NOMBRE", 0), ("a{X", 1), ("{X,2}", 0), ("{A B}", 0)])
+def test_unclosed_reference_is_error_at_brace(pattern, pos):
+    with pytest.raises(LexicalError) as exc:
+        tokenize(pattern)
+    assert exc.value.pos == pos
+    assert "referencia sin cerrar" in exc.value.message
+
+
+def test_reference_syntax_inside_class_is_literal():
+    assert single_token("[{A}]").value == {"{", "A", "}"}
+
+
+def test_escaped_brace_does_not_start_reference():
+    tokens = tokenize(r"\{A\}")
+    assert [(t.type, t.value) for t in tokens] == [
+        (T.CHAR, "{"), (T.CHAR, "A"), (T.CHAR, "}")]

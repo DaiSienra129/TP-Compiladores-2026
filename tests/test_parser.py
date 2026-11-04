@@ -5,7 +5,7 @@ from errors import RegexSyntaxError
 from lexer import RegexLexer
 from parser import RegexParser
 from ast_nodes import (
-    LiteralNode, ClassNode, ConcatNode, UnionNode, KleeneNode, PlusNode, OptionNode,
+    LiteralNode, ClassNode, RefNode, ConcatNode, UnionNode, KleeneNode, PlusNode, OptionNode,
 )
 
 
@@ -100,3 +100,43 @@ def test_unexpected_token_is_named_readably():
         parse("a)")
     assert "')'" in str(info.value)
     assert "Token(" not in str(info.value)
+
+
+# --- Referencias a definiciones -------------------------------------------------
+
+def ref_shape(node):
+    """Como `shape`, pero reconoce también las referencias."""
+    if isinstance(node, RefNode):
+        return ("ref", node.name)
+    if isinstance(node, (ConcatNode, UnionNode)):
+        return (type(node).__name__, ref_shape(node.left), ref_shape(node.right))
+    if isinstance(node, (KleeneNode, PlusNode, OptionNode)):
+        return (type(node).__name__, ref_shape(node.child))
+    return shape(node)
+
+
+def test_reference_parses_as_ref_node():
+    tree = parse("{A}{B}|c")
+    assert ref_shape(tree) == ("UnionNode",
+                               ("ConcatNode", ("ref", "A"), ("ref", "B")),
+                               c)
+
+
+def test_reference_accepts_quantifiers_and_groups():
+    tree = parse("({A}|b)*{C}?")
+    assert ref_shape(tree) == ("ConcatNode",
+                               ("KleeneNode", ("UnionNode", ("ref", "A"), b)),
+                               ("OptionNode", ("ref", "C")))
+
+
+def test_nodes_record_token_positions():
+    tree = parse("a[b]{C}")
+    ref = tree.right
+    cls = tree.left.right
+    assert (tree.left.left.pos, cls.pos, ref.pos) == (0, 1, 4)
+
+
+def test_reference_description_in_error_message():
+    from parser import describe_token
+    token = RegexLexer("{DIGITO}").tokenize()[0]
+    assert describe_token(token) == "referencia {DIGITO}"

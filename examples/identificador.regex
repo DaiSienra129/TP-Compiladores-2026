@@ -1,0 +1,5 @@
+# Identificador de C: una letra o '_' seguida de letras, dígitos o '_'
+DIGITO = [0-9]
+LETRA  = [a-zA-Z_]
+%%
+{LETRA}({LETRA}|{DIGITO})*

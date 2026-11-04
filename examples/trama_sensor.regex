@@ -1,0 +1,8 @@
+# Trama de un sensor IoT, por ejemplo: TEMP=23.5;HUM=40
+DIGITO      = [0-9]
+ENTERO      = {DIGITO}+
+NUMERO      = {ENTERO}(\.{ENTERO})?
+TEMPERATURA = TEMP={NUMERO}
+HUMEDAD     = HUM={ENTERO}
+%%
+{TEMPERATURA};{HUMEDAD}
