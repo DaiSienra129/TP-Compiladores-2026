@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 *.o
 *.out
+.venv/
+.pytest_cache/
