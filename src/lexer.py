@@ -9,6 +9,10 @@ Funciona como una pequeña máquina de estados guiada por el carácter actual:
     '['                              -> escáner de clase (estado: dentro de una clase)
     '\\'                             -> escáner de escape (se consume un carácter más)
     cualquier otro                   -> literal CHAR
+
+`tokenize()` agrega siempre un único token EOF al final, con pos == len(patrón).
+Cumple el papel del marcador de fin de entrada `$` de los conjuntos FIRST/FOLLOW,
+de modo que el parser nunca se queda sin token que inspeccionar.
 """
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -25,6 +29,7 @@ class TokenType(Enum):
     QUESTION = auto()
     LPAREN = auto()
     RPAREN = auto()
+    EOF = auto()  # fin de la entrada: el marcador '$' de FIRST/FOLLOW
 
 
 SINGLE_CHAR_TOKENS: dict[str, TokenType] = {
@@ -54,7 +59,7 @@ class Token:
 
 
 class RegexLexer:
-    """Convierte una cadena de expresión regular en una lista de Tokens."""
+    """Convierte una cadena de expresión regular en una lista de Tokens terminada en EOF."""
 
     def __init__(self, pattern: str):
         self.pattern = pattern
@@ -83,6 +88,7 @@ class RegexLexer:
             else:
                 self.pos += 1
                 tokens.append(Token(TokenType.CHAR, char, start))
+        tokens.append(Token(TokenType.EOF, None, len(self.pattern)))
         return tokens
 
     def _read_escape(self, pos: int) -> tuple[str, int]:
