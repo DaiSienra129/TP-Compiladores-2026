@@ -116,7 +116,7 @@ def test_escaped_bracket_inside_class():
 
 
 def test_escaped_range_endpoint_inside_class():
-    assert single_token(r"[\x-\z]").value == {"x", "y", "z"}
+    assert single_token(r"[\!-\#]").value == {"!", '"', "#"}
     assert single_token(r"[\t-\n]").value == {"\t", "\n"}
 
 
@@ -177,6 +177,38 @@ def test_escaped_braces_are_literals(pattern, expected):
 
 def test_braces_inside_class_are_literals():
     assert single_token("[{}]").value == {"{", "}"}
+
+
+# Clases abreviadas (\d, \w, \s, ...) y retroreferencias (\1) significan otra
+# cosa en `re`; deben rechazarse, no tomarse como literales.
+@pytest.mark.parametrize("pattern, pos", [
+    (r"\d", 0),
+    (r"\w", 0),
+    (r"\s", 0),
+    (r"\D", 0),
+    (r"\b", 0),
+    (r"(a)\1", 3),
+    (r"\0", 0),
+    (r"[\d]", 1),
+    (r"[a-\z]", 3),
+])
+def test_alphanumeric_escapes_are_unsupported(pattern, pos):
+    with pytest.raises(LexicalError) as exc:
+        tokenize(pattern)
+    assert exc.value.pos == pos
+    assert "no está soportado" in str(exc.value)
+
+
+@pytest.mark.parametrize("pattern, expected", [
+    (r"\\", "\\"),
+    (r"\+", "+"),
+    (r"\-", "-"),
+    (r"\_", "_"),
+    ("\\ñ", "ñ"),
+])
+def test_non_alphanumeric_escapes_are_literals(pattern, expected):
+    token = single_token(pattern)
+    assert (token.type, token.value) == (T.CHAR, expected)
 
 
 # --- Posiciones y errores tipados ---------------------------------------------

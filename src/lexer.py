@@ -101,7 +101,15 @@ class RegexLexer:
             raise LexicalError(
                 "Error léxico: símbolo de escape '\\' incompleto al final", pos)
         escaped = self.pattern[pos + 1]
-        return ESCAPES.get(escaped, escaped), pos + 2
+        if escaped in ESCAPES:
+            return ESCAPES[escaped], pos + 2
+        # En `re`, '\' seguido de una letra o un dígito ASCII tiene significado
+        # propio (\d, \w, \s, retroreferencias como \1). Se rechaza en lugar de
+        # tomarlo como literal, para no aceptar en silencio algo que significa otra cosa.
+        if escaped.isascii() and escaped.isalnum():
+            raise LexicalError(
+                f"Error léxico: el escape '\\{escaped}' no está soportado", pos)
+        return escaped, pos + 2
 
     def _read_class_char(self, pos: int) -> tuple[str, int]:
         """Lee un carácter (posiblemente escapado) dentro de una clase."""
