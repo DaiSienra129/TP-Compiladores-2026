@@ -1,81 +1,117 @@
 # src/lexer.py
+"""Hand-written lexer for regular expressions.
 
+It works as a small state machine driven by the current character:
+
+    operator char (| * + ? ( ))  -> emit the operator token
+    '['                          -> class scanner (state: inside a class)
+    '\\'                         -> escape scanner (one more char is consumed)
+    anything else                -> CHAR literal
+"""
+from dataclasses import dataclass
+from enum import Enum, auto
+
+from errors import LexicalError
+
+
+class TokenType(Enum):
+    CHAR = auto()
+    CLASS = auto()
+    PIPE = auto()
+    STAR = auto()
+    PLUS = auto()
+    QUESTION = auto()
+    LPAREN = auto()
+    RPAREN = auto()
+
+
+SINGLE_CHAR_TOKENS: dict[str, TokenType] = {
+    '|': TokenType.PIPE,
+    '*': TokenType.STAR,
+    '+': TokenType.PLUS,
+    '?': TokenType.QUESTION,
+    '(': TokenType.LPAREN,
+    ')': TokenType.RPAREN,
+}
+
+ESCAPES: dict[str, str] = {'n': '\n', 't': '\t'}
+
+
+@dataclass(frozen=True)
 class Token:
-    """Unidad léxica indivisible con tipo y valor."""
-    def __init__(self, token_type: str, value=None):
-        self.type = token_type
-        self.value = value
+    """Indivisible lexical unit: type, optional value and start position."""
+    type: TokenType
+    value: str | frozenset[str] | None
+    pos: int  # 0-based index of the token's first character in the pattern
 
-    def __repr__(self):
-        return f"Token({self.type}, {repr(self.value)})"
 
 class RegexLexer:
-    """Convierte una cadena de expresión regular en una lista de Tokens."""
+    """Converts a regular expression string into a list of Tokens."""
+
     def __init__(self, pattern: str):
         self.pattern = pattern
         self.pos = 0
 
-    def tokenize(self):
+    def tokenize(self) -> list[Token]:
         tokens = []
         while self.pos < len(self.pattern):
             char = self.pattern[self.pos]
-
-            if char == '|':
-                tokens.append(Token('PIPE'))
+            start = self.pos
+            if char in SINGLE_CHAR_TOKENS:
                 self.pos += 1
-            elif char == '*':
-                tokens.append(Token('STAR'))
-                self.pos += 1
-            elif char == '+':
-                tokens.append(Token('PLUS'))
-                self.pos += 1
-            elif char == '?':
-                tokens.append(Token('QUESTION'))
-                self.pos += 1
-            elif char == '(':
-                tokens.append(Token('LPAREN'))
-                self.pos += 1
-            elif char == ')':
-                tokens.append(Token('RPAREN'))
-                self.pos += 1
+                tokens.append(Token(SINGLE_CHAR_TOKENS[char], None, start))
             elif char == '[':
-                tokens.append(self._parse_class())
+                tokens.append(self._scan_class())
             elif char == '\\':
-                self.pos += 1
-                if self.pos < len(self.pattern):
-                    escaped = self.pattern[self.pos]
-                    if escaped == 'n':
-                        tokens.append(Token('CHAR', '\n'))
-                    elif escaped == 't':
-                        tokens.append(Token('CHAR', '\t'))
-                    else:
-                        tokens.append(Token('CHAR', escaped))
-                    self.pos += 1
-                else:
-                    raise ValueError("Error léxico: símbolo de escape '\\' incompleto al final")
+                escaped, self.pos = self._read_escape(self.pos)
+                tokens.append(Token(TokenType.CHAR, escaped, start))
             else:
-                tokens.append(Token('CHAR', char))
                 self.pos += 1
+                tokens.append(Token(TokenType.CHAR, char, start))
         return tokens
 
-    def _parse_class(self):
-        """Procesa una clase de caracteres como [a-z0-9_]."""
-        self.pos += 1  # Saltear '['
-        chars = set()
+    def _read_escape(self, pos: int) -> tuple[str, int]:
+        """Read the escape starting at the backslash at `pos`.
+
+        Returns (resulting char, position after the escape). Used both
+        outside and inside character classes.
+        """
+        if pos + 1 >= len(self.pattern):
+            raise LexicalError(
+                "Error léxico: símbolo de escape '\\' incompleto al final", pos)
+        escaped = self.pattern[pos + 1]
+        return ESCAPES.get(escaped, escaped), pos + 2
+
+    def _read_class_char(self, pos: int) -> tuple[str, int]:
+        """Read one (possibly escaped) character inside a class."""
+        if self.pattern[pos] == '\\':
+            return self._read_escape(pos)
+        return self.pattern[pos], pos + 1
+
+    def _scan_class(self) -> Token:
+        """Scan a character class such as [a-z0-9_] starting at '['."""
+        start = self.pos
+        self.pos += 1  # skip '['
+        chars: set[str] = set()
         while self.pos < len(self.pattern) and self.pattern[self.pos] != ']':
-            char = self.pattern[self.pos]
-            # Verificar si se trata de un rango ej. 'a-z'
-            if self.pos + 2 < len(self.pattern) and self.pattern[self.pos + 1] == '-':
-                end_char = self.pattern[self.pos + 2]
-                for c in range(ord(char), ord(end_char) + 1):
-                    chars.add(chr(c))
-                self.pos += 3
+            first, self.pos = self._read_class_char(self.pos)
+            if self._at_range_dash():
+                self.pos += 1  # skip '-'
+                last, self.pos = self._read_class_char(self.pos)
+                chars.update(chr(c) for c in range(ord(first), ord(last) + 1))
             else:
-                chars.add(char)
-                self.pos += 1
+                chars.add(first)
 
         if self.pos >= len(self.pattern):
-            raise ValueError("Error léxico: corchete de clase ']' no cerrado")
+            raise LexicalError(
+                "Error léxico: corchete de clase '[' no cerrado", start)
 
-        self.pos += 1  # Saltear ']'
-        return Token('CLASS', chars)
+        self.pos += 1  # skip ']'
+        return Token(TokenType.CLASS, frozenset(chars), start)
+
+    def _at_range_dash(self) -> bool:
+        """True if the current '-' is a range operator (a char follows, not ']')."""
+        p = self.pos
+        return (p + 1 < len(self.pattern)
+                and self.pattern[p] == '-'
+                and self.pattern[p + 1] != ']')
