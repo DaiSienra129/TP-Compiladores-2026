@@ -4,6 +4,8 @@
 Funciona como una pequeña máquina de estados guiada por el carácter actual:
 
     carácter operador (| * + ? ( ))  -> emite el token del operador
+    '.'                              -> comodín: CLASS con todo el alfabeto salvo '\\n'
+    '{' o '}'                        -> error léxico (cuantificadores acotados no soportados)
     '['                              -> escáner de clase (estado: dentro de una clase)
     '\\'                             -> escáner de escape (se consume un carácter más)
     cualquier otro                   -> literal CHAR
@@ -34,6 +36,12 @@ SINGLE_CHAR_TOKENS: dict[str, TokenType] = {
     ')': TokenType.RPAREN,
 }
 
+# Alfabeto del compilador: los 256 caracteres chr(0)..chr(255).
+ALPHABET: frozenset[str] = frozenset(chr(c) for c in range(256))
+
+# El comodín '.' coincide con cualquier carácter salvo el salto de línea, como en `re`.
+WILDCARD: frozenset[str] = ALPHABET - {'\n'}
+
 ESCAPES: dict[str, str] = {'n': '\n', 't': '\t'}
 
 
@@ -60,6 +68,13 @@ class RegexLexer:
             if char in SINGLE_CHAR_TOKENS:
                 self.pos += 1
                 tokens.append(Token(SINGLE_CHAR_TOKENS[char], None, start))
+            elif char == '.':
+                self.pos += 1
+                tokens.append(Token(TokenType.CLASS, WILDCARD, start))
+            elif char in '{}':
+                raise LexicalError(
+                    "Error léxico: los cuantificadores acotados '{m,n}' no están soportados",
+                    start)
             elif char == '[':
                 tokens.append(self._scan_class())
             elif char == '\\':
@@ -92,6 +107,10 @@ class RegexLexer:
         """Escanea una clase de caracteres como [a-z0-9_] a partir de '['."""
         start = self.pos
         self.pos += 1  # salta '['
+        if self.pos < len(self.pattern) and self.pattern[self.pos] == '^':
+            raise LexicalError(
+                "Error léxico: la negación de clases '[^...]' no está soportada",
+                self.pos)
         chars: set[str] = set()
         while self.pos < len(self.pattern) and self.pattern[self.pos] != ']':
             first, self.pos = self._read_class_char(self.pos)

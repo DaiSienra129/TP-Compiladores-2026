@@ -44,10 +44,26 @@ def test_escape_yields_char(pattern, expected):
     assert (token.type, token.value) == (T.CHAR, expected)
 
 
-def test_dot_is_a_plain_literal_today():
-    # El soporte de comodín para '.' es una decisión de alcance abierta; por ahora es un literal.
+def test_dot_is_a_wildcard_class_without_newline():
     token = single_token(".")
-    assert (token.type, token.value) == (T.CHAR, ".")
+    assert token.type == T.CLASS
+    assert len(token.value) == 255
+    assert "\n" not in token.value
+    assert "a" in token.value
+    assert chr(0) in token.value
+    assert chr(255) in token.value
+    assert token.pos == 0
+
+
+def test_wildcard_between_literals():
+    tokens = tokenize("a.b")
+    assert [t.type for t in tokens] == [T.CHAR, T.CLASS, T.CHAR]
+    assert [t.pos for t in tokens] == [0, 1, 2]
+    assert len(tokens[1].value) == 255
+
+
+def test_dot_inside_class_is_literal():
+    assert single_token("[.]").value == {"."}
 
 
 @pytest.mark.parametrize("pattern, expected", [
@@ -111,11 +127,6 @@ def test_escape_inside_class_resolves_n_and_t():
 
 # --- Errores conocidos aún abiertos (tareas posteriores): verifican el comportamiento DESEADO -------
 
-@pytest.mark.xfail(strict=True, reason="'^' no se trata como negación; se agrega como un miembro común")
-def test_caret_negates_class():
-    assert "^" not in single_token("[^a]").value
-
-
 @pytest.mark.xfail(strict=True, reason="la clase vacía '[]' produce silenciosamente un conjunto vacío")
 def test_empty_class_is_an_error():
     with pytest.raises(ValueError):
@@ -126,6 +137,39 @@ def test_empty_class_is_an_error():
 def test_inverted_range_is_an_error():
     with pytest.raises(ValueError):
         tokenize("[z-a]")
+
+
+# --- Sintaxis no soportada y comodín ---------------------------------------------
+
+def test_class_negation_is_unsupported():
+    with pytest.raises(LexicalError) as exc:
+        tokenize("[^a]")
+    assert exc.value.pos == 1
+
+
+def test_caret_not_first_in_class_is_literal():
+    assert single_token("[a^]").value == {"a", "^"}
+
+
+def test_escaped_caret_first_in_class_is_literal():
+    assert single_token(r"[\^a]").value == {"^", "a"}
+
+
+@pytest.mark.parametrize("pattern, pos", [("a{2}", 1), ("a{2,3}", 1), ("a}", 1)])
+def test_unescaped_braces_are_unsupported(pattern, pos):
+    with pytest.raises(LexicalError) as exc:
+        tokenize(pattern)
+    assert exc.value.pos == pos
+
+
+@pytest.mark.parametrize("pattern, expected", [(r"\{", "{"), (r"\}", "}")])
+def test_escaped_braces_are_literals(pattern, expected):
+    token = single_token(pattern)
+    assert (token.type, token.value) == (T.CHAR, expected)
+
+
+def test_braces_inside_class_are_literals():
+    assert single_token("[{}]").value == {"{", "}"}
 
 
 # --- Posiciones y errores tipados ---------------------------------------------
