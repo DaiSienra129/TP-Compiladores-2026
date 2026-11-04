@@ -7,26 +7,26 @@
 
 ## 👥 Integrantes del Equipo
 * **Daiana Micaela Sienra**
-* **Giuliano Hillegrand**[cite: 1]
-* **Martín Gonzalez**[cite: 1]
+* **Giuliano Hillegrand**
+* **Martín Gonzalez**
 
 ---
 ## 🌍 Entorno de Aplicación y Contexto del Compilador
 
 ### ¿Dónde se aplica este compilador?
-**Regex2AFD** está diseñado para ser utilizado en **sistemas embebidos, dispositivos IoT y microcontroladores** con recursos de hardware (RAM y memoria Flash) estrictamente limitados[cite: 1].
+**Regex2AFD** está diseñado para ser utilizado en **sistemas embebidos, dispositivos IoT y microcontroladores** con recursos de hardware (RAM y memoria Flash) estrictamente limitados.
 
 ### Solución propuesta
-**Regex2AFD** funciona como un compilador de dominio específico que toma una expresión regular durante la etapa de compilación en la PC (Host) y genera una función en código C estándar (Target) altamente optimizada[cite: 1]:
-* **Sin memoria dinámica:** 0 asignaciones en tiempo de ejecución (verificable con Valgrind)[cite: 1].
-* **Sin dependencias externas:** Código C99 autónomo sin incluir librerías pesadas[cite: 1].
-* **Tiempo de ejecución lineal $O(N)$:** Garantiza respuesta determinista y predecible realizando un solo acceso a la tabla de transiciones por cada carácter[cite: 1].
+**Regex2AFD** funciona como un compilador de dominio específico que toma una expresión regular durante la etapa de compilación en la PC (Host) y genera una función en código C estándar (Target) altamente optimizada:
+* **Sin memoria dinámica:** 0 asignaciones en tiempo de ejecución (verificable con Valgrind).
+* **Sin dependencias externas:** Código C99 autónomo sin incluir librerías pesadas.
+* **Tiempo de ejecución lineal $O(N)$:** Garantiza respuesta determinista y predecible realizando un solo acceso a la tabla de transiciones por cada carácter.
 
 ---
 
 ## ⚙️ Arquitectura del Pipeline
 
-El compilador realiza 6 transformaciones consecutivas sobre el patrón de entrada[cite: 1]:
+El compilador realiza 6 transformaciones consecutivas sobre el patrón de entrada:
 
 ```text
 Expresión Regular (.regex) 
