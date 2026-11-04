@@ -132,18 +132,61 @@ def test_escape_inside_class_resolves_n_and_t():
     assert single_token(r"[\n\t]").value == {"\n", "\t"}
 
 
-# --- Errores conocidos aún abiertos (tareas posteriores): verifican el comportamiento DESEADO -------
+# --- Clases vacías, rangos invertidos y ']' inicial -------------------------------
 
-@pytest.mark.xfail(strict=True, reason="la clase vacía '[]' produce silenciosamente un conjunto vacío")
 def test_empty_class_is_an_error():
-    with pytest.raises(ValueError):
+    # '[]' no es una clase vacía: el ']' inicial es literal y la clase queda sin cerrar.
+    with pytest.raises(LexicalError) as exc:
         tokenize("[]")
+    assert exc.value.pos == 0
 
 
-@pytest.mark.xfail(strict=True, reason="el rango invertido '[z-a]' produce silenciosamente un conjunto vacío")
 def test_inverted_range_is_an_error():
-    with pytest.raises(ValueError):
+    with pytest.raises(LexicalError) as exc:
         tokenize("[z-a]")
+    assert exc.value.pos == 1
+
+
+def test_inverted_range_with_escaped_endpoints_is_an_error():
+    # '\#' es '#' (0x23) y '\!' es '!' (0x21): el rango queda invertido.
+    with pytest.raises(LexicalError) as exc:
+        tokenize(r"[\#-\!]")
+    assert exc.value.pos == 1
+
+
+def test_single_char_range_is_valid():
+    assert single_token("[a-a]").value == {"a"}
+
+
+def test_leading_close_bracket_is_a_literal():
+    assert single_token("[]a]").value == {"]", "a"}
+
+
+def test_leading_close_bracket_followed_by_caret_is_a_literal():
+    assert single_token("[]^]").value == {"]", "^"}
+
+
+def test_leading_close_bracket_can_start_a_range():
+    assert single_token("[]-a]").value == {"]", "^", "_", "`", "a"}
+
+
+# --- Anclas no soportadas ----------------------------------------------------------
+
+@pytest.mark.parametrize("pattern, pos", [("^a", 0), ("a$", 1), ("a^b", 1)])
+def test_anchors_outside_classes_are_errors(pattern, pos):
+    with pytest.raises(LexicalError) as exc:
+        tokenize(pattern)
+    assert exc.value.pos == pos
+
+
+@pytest.mark.parametrize("pattern, char", [(r"\^", "^"), (r"\$", "$")])
+def test_escaped_anchors_are_literals(pattern, char):
+    token = single_token(pattern)
+    assert token.type == T.CHAR and token.value == char
+
+
+def test_dollar_inside_class_is_a_literal():
+    assert single_token("[$]").value == {"$"}
 
 
 # --- Sintaxis no soportada y comodín ---------------------------------------------

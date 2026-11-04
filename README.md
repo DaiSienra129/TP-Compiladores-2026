@@ -74,13 +74,15 @@ La gramática es LL(1) y el parser es descendente recursivo (una función por no
 
 * Literales (`a`, `Z`, `7`) y escapes: `\n` (salto de línea), `\t` (tabulación) y `\` seguido de un símbolo lo vuelve literal (`\.`, `\*`, `\{`, `\\`).
 * Comodín `.` (cualquier carácter salvo `\n`).
-* Clases de caracteres con rangos: `[abc]`, `[a-zA-Z0-9_]`.
+* Clases de caracteres con rangos: `[abc]`, `[a-zA-Z0-9_]`. Como en `re`, un `]` inmediatamente después de `[` es un literal (`[]a]` equivale a `]` o `a`), por lo que `[]` queda sin cerrar.
 * Unión `|`, cuantificadores `*`, `+`, `?` y agrupación con paréntesis.
 
 ### No soportada (error léxico)
 
 * Clases negadas `[^...]`.
 * Cuantificadores acotados `{m,n}`.
+* Anclas `^` y `$` fuera de clases: el patrón siempre se valida contra la cadena completa (`\^` y `\$` son literales).
+* Rangos invertidos en clases, como `[z-a]`.
 * Escapes de letras o dígitos distintos de `\n` y `\t`: clases abreviadas (`\d`, `\w`, `\s`) y retroreferencias (`\1`).
 
 ### Ejemplo de error sintáctico
