@@ -60,6 +60,14 @@ def test_parse_tree(pattern, expected):
     assert shape(parse(pattern)) == expected
 
 
+def test_wildcard_parses_as_class_between_literals():
+    tree = shape(parse("a.b"))
+    assert tree[0] == "concat" and tree[2] == b
+    inner = tree[1]
+    assert inner[0] == "concat" and inner[1] == a
+    assert inner[2][0] == "class" and len(inner[2][1]) == 255
+
+
 @pytest.mark.parametrize("pattern", ["a|", "|a", "()", "(a", "a)", "*a", ""])
 def test_syntax_errors(pattern):
     with pytest.raises(ValueError):
