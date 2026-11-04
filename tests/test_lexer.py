@@ -1,4 +1,4 @@
-"""Characterization tests for RegexLexer: pin current behavior, document known bugs."""
+"""Tests de caracterización de RegexLexer: fijan el comportamiento actual y documentan errores conocidos."""
 import pytest
 
 from errors import LexicalError
@@ -15,7 +15,7 @@ def single_token(pattern):
     return tokens[0]
 
 
-# --- Current behavior that is correct ---------------------------------------
+# --- Comportamiento actual que es correcto ---------------------------------------
 
 @pytest.mark.parametrize("char, token_type", [
     ("|", T.PIPE), ("*", T.STAR), ("+", T.PLUS), ("?", T.QUESTION),
@@ -45,7 +45,7 @@ def test_escape_yields_char(pattern, expected):
 
 
 def test_dot_is_a_plain_literal_today():
-    # Wildcard support for '.' is an open scope decision; for now it is a literal.
+    # El soporte de comodín para '.' es una decisión de alcance abierta; por ahora es un literal.
     token = single_token(".")
     assert (token.type, token.value) == (T.CHAR, ".")
 
@@ -82,7 +82,7 @@ def test_lexical_errors(pattern, message):
         tokenize(pattern)
 
 
-# --- Fixed lexical bugs -----------------------------------------------------
+# --- Errores léxicos corregidos -----------------------------------------------------
 
 def test_trailing_dash_in_class_is_literal():
     assert single_token("[a-]").value == {"a", "-"}
@@ -109,26 +109,26 @@ def test_escape_inside_class_resolves_n_and_t():
     assert single_token(r"[\n\t]").value == {"\n", "\t"}
 
 
-# --- Known bugs still open (later tasks): assert the DESIRED behavior -------
+# --- Errores conocidos aún abiertos (tareas posteriores): verifican el comportamiento DESEADO -------
 
-@pytest.mark.xfail(strict=True, reason="'^' is not treated as negation; it is added as a plain member")
+@pytest.mark.xfail(strict=True, reason="'^' no se trata como negación; se agrega como un miembro común")
 def test_caret_negates_class():
     assert "^" not in single_token("[^a]").value
 
 
-@pytest.mark.xfail(strict=True, reason="empty class '[]' silently yields an empty set")
+@pytest.mark.xfail(strict=True, reason="la clase vacía '[]' produce silenciosamente un conjunto vacío")
 def test_empty_class_is_an_error():
     with pytest.raises(ValueError):
         tokenize("[]")
 
 
-@pytest.mark.xfail(strict=True, reason="inverted range '[z-a]' silently yields an empty set")
+@pytest.mark.xfail(strict=True, reason="el rango invertido '[z-a]' produce silenciosamente un conjunto vacío")
 def test_inverted_range_is_an_error():
     with pytest.raises(ValueError):
         tokenize("[z-a]")
 
 
-# --- Positions and typed errors ---------------------------------------------
+# --- Posiciones y errores tipados ---------------------------------------------
 
 def test_token_positions_for_mixed_pattern():
     tokens = tokenize("a|[bc]*\\n")

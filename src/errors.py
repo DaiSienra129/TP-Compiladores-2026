@@ -1,9 +1,9 @@
 # src/errors.py
-"""Typed compiler errors. Every error carries the position where it was detected."""
+"""Errores tipados del compilador. Cada error lleva la posición donde fue detectado."""
 
 
 class CompilerError(Exception):
-    """Base class for all compiler errors; remembers the 0-based pattern position."""
+    """Clase base de todos los errores del compilador; recuerda la posición (base 0) en el patrón."""
 
     def __init__(self, message: str, pos: int):
         super().__init__(message, pos)
@@ -15,10 +15,10 @@ class CompilerError(Exception):
 
 
 class LexicalError(CompilerError, ValueError):
-    """Invalid input while scanning characters into tokens.
+    """Entrada inválida al convertir caracteres en tokens.
 
-    Also a ValueError so callers written before the typed errors keep working.
+    También es un ValueError para que el código escrito antes de los errores tipados siga funcionando.
     """
 
 
-# TODO (T3): add a SyntaxError-equivalent (e.g. RegexSyntaxError) for the parser.
+# TODO (T3): agregar un equivalente de SyntaxError (p. ej. RegexSyntaxError) para el parser.

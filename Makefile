@@ -1,4 +1,4 @@
-# Folder variables
+# Variables de carpetas
 SRC_DIR = src
 TEST_DIR = tests
 OUT_DIR = out
@@ -6,14 +6,14 @@ PYTEST ?= uv run pytest
 
 .PHONY: all help test run clean
 
-# Default rule (runs on plain 'make')
+# Regla por defecto (se ejecuta con 'make' a secas)
 all: help
 
 help:
-	@echo "Available targets:"
-	@echo "  make test   - Run the pytest suite"
-	@echo "  make run    - Run the compiler entry point"
-	@echo "  make clean  - Remove generated files in out/"
+	@echo "Objetivos disponibles:"
+	@echo "  make test   - Ejecuta la suite de pytest"
+	@echo "  make run    - Ejecuta el punto de entrada del compilador"
+	@echo "  make clean  - Elimina los archivos generados en out/"
 
 test:
 	$(PYTEST)
@@ -21,6 +21,6 @@ test:
 run:
 	uv run python $(SRC_DIR)/main.py
 
-# Remove generated files
+# Elimina los archivos generados
 clean:
 	rm -rf $(OUT_DIR)/*

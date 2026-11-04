@@ -1,4 +1,4 @@
-"""Characterization tests for RegexParser: precedence, structure and syntax errors."""
+"""Tests de caracterización de RegexParser: precedencia, estructura y errores de sintaxis."""
 import pytest
 
 from lexer import RegexLexer
@@ -13,7 +13,7 @@ def parse(pattern):
 
 
 def shape(node):
-    """Convert an AST into nested tuples so expected trees are easy to write."""
+    """Convierte un AST en tuplas anidadas para facilitar escribir los árboles esperados."""
     if isinstance(node, LiteralNode):
         return ("lit", node.char)
     if isinstance(node, ClassNode):
@@ -35,13 +35,13 @@ a, b, c = ("lit", "a"), ("lit", "b"), ("lit", "c")
 
 
 @pytest.mark.parametrize("pattern, expected", [
-    # '*' binds tighter than concatenation, which binds tighter than '|'
+    # '*' liga más fuerte que la concatenación, que a su vez liga más fuerte que '|'
     ("ab|c*", ("union", ("concat", a, b), ("star", c))),
     ("a|bc", ("union", a, ("concat", b, c))),
     ("ab*", ("concat", a, ("star", b))),
-    # concatenation is left-associative
+    # la concatenación es asociativa a izquierda
     ("abc", ("concat", ("concat", a, b), c)),
-    # union is left-associative
+    # la unión es asociativa a izquierda
     ("a|b|c", ("union", ("union", a, b), c)),
     ("(a|b)*abb", ("concat",
                    ("concat",
@@ -53,7 +53,7 @@ a, b, c = ("lit", "a"), ("lit", "b"), ("lit", "c")
     ("(ab)*", ("star", ("concat", a, b))),
     ("((a))", a),
     ("[ab]c", ("concat", ("class", frozenset("ab")), c)),
-    # stacked unary operators nest; harmless, so pinned as-is
+    # los operadores unarios apilados se anidan; es inofensivo, por lo que se fija tal cual
     ("a**", ("star", ("star", a))),
 ])
 def test_parse_tree(pattern, expected):
