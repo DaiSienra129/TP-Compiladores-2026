@@ -6,6 +6,7 @@ Funciona como una pequeña máquina de estados guiada por el carácter actual:
     carácter operador (| * + ? ( ))  -> emite el token del operador
     '.'                              -> comodín: CLASS con todo el alfabeto salvo '\\n'
     '{' o '}'                        -> error léxico (cuantificadores acotados no soportados)
+    '^' o '$' (fuera de clase)       -> error léxico (anclas no soportadas)
     '['                              -> escáner de clase (estado: dentro de una clase)
     '\\'                             -> escáner de escape (se consume un carácter más)
     cualquier otro                   -> literal CHAR
@@ -80,6 +81,11 @@ class RegexLexer:
                 raise LexicalError(
                     "Error léxico: los cuantificadores acotados '{m,n}' no están soportados",
                     start)
+            elif char in '^$':
+                raise LexicalError(
+                    f"Error léxico: el ancla '{char}' no está soportada, porque el "
+                    "patrón siempre se valida contra la cadena completa",
+                    start)
             elif char == '[':
                 tokens.append(self._scan_class())
             elif char == '\\':
@@ -126,11 +132,20 @@ class RegexLexer:
                 "Error léxico: la negación de clases '[^...]' no está soportada",
                 self.pos)
         chars: set[str] = set()
-        while self.pos < len(self.pattern) and self.pattern[self.pos] != ']':
+        # Como en `re`, un ']' inmediatamente después de '[' es un literal.
+        first_in_class = True
+        while self.pos < len(self.pattern) and (
+                first_in_class or self.pattern[self.pos] != ']'):
+            first_in_class = False
+            range_start = self.pos
             first, self.pos = self._read_class_char(self.pos)
             if self._at_range_dash():
                 self.pos += 1  # salta '-'
                 last, self.pos = self._read_class_char(self.pos)
+                if ord(first) > ord(last):
+                    raise LexicalError(
+                        f"Error léxico: rango de caracteres inválido '{first}-{last}'",
+                        range_start)
                 chars.update(chr(c) for c in range(ord(first), ord(last) + 1))
             else:
                 chars.add(first)
