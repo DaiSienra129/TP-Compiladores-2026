@@ -7,7 +7,7 @@
 
 ## 👥 Integrantes del Equipo
 * **Daiana Micaela Sienra**
-* **Giuliano Hillegrand**
+* **Giuliano Hillebrand**
 * **Martín Gonzalez**
 
 ---
@@ -36,7 +36,7 @@ Expresión Regular (.regex)
    └─► 4. AFD Mínimo (Algoritmo de Hopcroft)
    ├─► 5. Código C (Función de validación C99)
    └─► 6. Diagrama de Autómata (Graphviz .dot / PNG)
-```[cite: 1]
+```
 
 ---
 
@@ -44,3 +44,16 @@ Expresión Regular (.regex)
 
 ### Host (Máquina de desarrollo)
 * **Lenguaje principal:** Python 3.12+ (Pipeline de análisis léxico, sintáctico y síntesis)
+
+---
+
+## 🧪 Pruebas
+
+Las pruebas usan `pytest`, gestionado con [uv](https://docs.astral.sh/uv/):
+
+```bash
+make test                              # uv run pytest
+make test PYTEST="python3 -m pytest"   # sin uv, con pytest instalado
+```
+
+Los errores conocidos están marcados como `xfail` estrictos: al corregir uno, quitar su marca.
