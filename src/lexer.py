@@ -1,12 +1,12 @@
 # src/lexer.py
-"""Hand-written lexer for regular expressions.
+"""Lexer escrito a mano para expresiones regulares.
 
-It works as a small state machine driven by the current character:
+Funciona como una pequeña máquina de estados guiada por el carácter actual:
 
-    operator char (| * + ? ( ))  -> emit the operator token
-    '['                          -> class scanner (state: inside a class)
-    '\\'                         -> escape scanner (one more char is consumed)
-    anything else                -> CHAR literal
+    carácter operador (| * + ? ( ))  -> emite el token del operador
+    '['                              -> escáner de clase (estado: dentro de una clase)
+    '\\'                             -> escáner de escape (se consume un carácter más)
+    cualquier otro                   -> literal CHAR
 """
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -39,14 +39,14 @@ ESCAPES: dict[str, str] = {'n': '\n', 't': '\t'}
 
 @dataclass(frozen=True)
 class Token:
-    """Indivisible lexical unit: type, optional value and start position."""
+    """Unidad léxica indivisible: tipo, valor opcional y posición de inicio."""
     type: TokenType
     value: str | frozenset[str] | None
-    pos: int  # 0-based index of the token's first character in the pattern
+    pos: int  # índice (base 0) del primer carácter del token en el patrón
 
 
 class RegexLexer:
-    """Converts a regular expression string into a list of Tokens."""
+    """Convierte una cadena de expresión regular en una lista de Tokens."""
 
     def __init__(self, pattern: str):
         self.pattern = pattern
@@ -71,10 +71,10 @@ class RegexLexer:
         return tokens
 
     def _read_escape(self, pos: int) -> tuple[str, int]:
-        """Read the escape starting at the backslash at `pos`.
+        """Lee el escape que comienza en la barra invertida ubicada en `pos`.
 
-        Returns (resulting char, position after the escape). Used both
-        outside and inside character classes.
+        Devuelve (carácter resultante, posición posterior al escape). Se usa
+        tanto fuera como dentro de las clases de caracteres.
         """
         if pos + 1 >= len(self.pattern):
             raise LexicalError(
@@ -83,20 +83,20 @@ class RegexLexer:
         return ESCAPES.get(escaped, escaped), pos + 2
 
     def _read_class_char(self, pos: int) -> tuple[str, int]:
-        """Read one (possibly escaped) character inside a class."""
+        """Lee un carácter (posiblemente escapado) dentro de una clase."""
         if self.pattern[pos] == '\\':
             return self._read_escape(pos)
         return self.pattern[pos], pos + 1
 
     def _scan_class(self) -> Token:
-        """Scan a character class such as [a-z0-9_] starting at '['."""
+        """Escanea una clase de caracteres como [a-z0-9_] a partir de '['."""
         start = self.pos
-        self.pos += 1  # skip '['
+        self.pos += 1  # salta '['
         chars: set[str] = set()
         while self.pos < len(self.pattern) and self.pattern[self.pos] != ']':
             first, self.pos = self._read_class_char(self.pos)
             if self._at_range_dash():
-                self.pos += 1  # skip '-'
+                self.pos += 1  # salta '-'
                 last, self.pos = self._read_class_char(self.pos)
                 chars.update(chr(c) for c in range(ord(first), ord(last) + 1))
             else:
@@ -106,11 +106,11 @@ class RegexLexer:
             raise LexicalError(
                 "Error léxico: corchete de clase '[' no cerrado", start)
 
-        self.pos += 1  # skip ']'
+        self.pos += 1  # salta ']'
         return Token(TokenType.CLASS, frozenset(chars), start)
 
     def _at_range_dash(self) -> bool:
-        """True if the current '-' is a range operator (a char follows, not ']')."""
+        """Verdadero si el '-' actual es un operador de rango (sigue un carácter, no ']')."""
         p = self.pos
         return (p + 1 < len(self.pattern)
                 and self.pattern[p] == '-'
