@@ -1,14 +1,25 @@
-import sys
+# src/main.py
+from lexer import RegexLexer
+from parser import RegexParser
 
 def main():
-    print("=== Regex2AFD Compiler ===")
-    # TODO: 
-    # 1. Análisis léxico y sintáctico (ER -> AST)
-    # 2. Construcción de Thompson (AST -> AFND)
-    # 3. Construcción de Subconjuntos (AFND -> AFD)
-    # 4. Algoritmo de Hopcroft (AFD -> AFD Mínimo)
-    # 5. Generación de código C y exportación a Graphviz (.dot)
-    print("Pipeline del compilador inicializado correctamente.")
+    patron_prueba = "[a-zA-Z_][a-zA-Z0-9_]*"
+    print(f"Patrón de entrada: {patron_prueba}")
+    
+    # 1. Análisis Léxico
+    lexer = RegexLexer(patron_prueba)
+    tokens = lexer.tokenize()
+    
+    print("\nTokens generados:")
+    for t in tokens:
+        print(f"  {t}")
+
+    # 2. Análisis Sintáctico (AST)
+    parser = RegexParser(tokens)
+    ast = parser.parse()
+
+    print("\nÁrbol AST generado:")
+    print(f"  {ast}")
 
 if __name__ == "__main__":
     main()
