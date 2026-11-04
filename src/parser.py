@@ -1,4 +1,5 @@
 # src/parser.py
+from lexer import TokenType
 from ast_nodes import (
     LiteralNode, ClassNode, ConcatNode, UnionNode, 
     KleeneNode, PlusNode, OptionNode
@@ -35,7 +36,7 @@ class RegexParser:
     def _parse_expression(self):
         """Nivel 1: Alternancia / Unión ('|') - menor precedencia."""
         left = self._parse_subexpr()
-        while self.match('PIPE'):
+        while self.match(TokenType.PIPE):
             right = self._parse_subexpr()
             left = UnionNode(left, right)
         return left
@@ -43,7 +44,7 @@ class RegexParser:
     def _parse_subexpr(self):
         """Nivel 2: Concatenación implícita de términos."""
         factors = []
-        while self.peek() and self.peek().type not in ('PIPE', 'RPAREN'):
+        while self.peek() and self.peek().type not in (TokenType.PIPE, TokenType.RPAREN):
             factors.append(self._parse_factor())
         
         if not factors:
@@ -58,11 +59,11 @@ class RegexParser:
         """Nivel 3: Operadores unarios (*, +, ?) - mayor precedencia."""
         atom = self._parse_atom()
         while True:
-            if self.match('STAR'):
+            if self.match(TokenType.STAR):
                 atom = KleeneNode(atom)
-            elif self.match('PLUS'):
+            elif self.match(TokenType.PLUS):
                 atom = PlusNode(atom)
-            elif self.match('QUESTION'):
+            elif self.match(TokenType.QUESTION):
                 atom = OptionNode(atom)
             else:
                 break
@@ -74,14 +75,14 @@ class RegexParser:
         if not token:
             raise ValueError("Error sintáctico: fin de expresión inesperado")
 
-        if self.match('CHAR'):
+        if self.match(TokenType.CHAR):
             return LiteralNode(token.value)
-        elif self.match('CLASS'):
+        elif self.match(TokenType.CLASS):
             return ClassNode(token.value)
-        elif self.match('LPAREN'):
+        elif self.match(TokenType.LPAREN):
             expr = self._parse_expression()
-            if not self.match('RPAREN'):
+            if not self.match(TokenType.RPAREN):
                 raise ValueError("Error sintáctico: falta el paréntesis de cierre ')'")
             return expr
         else:
-            raise ValueError(f"Error sintáctico: token no reconocido '{token.type}'")
+            raise ValueError(f"Error sintáctico: token no reconocido '{token.type.name}'")
