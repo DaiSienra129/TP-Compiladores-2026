@@ -1,37 +1,46 @@
-# Regex2AFD: Compilador de Expresiones Regulares a Código C Optimizado
+# Regex2AFD — Compilador de Expresiones Regulares a Código C Optimizado
 
-**Regex2AFD** es un compilador de dominio específico (DSL) desarrollado para la asignatura **Compiladores** de la **Universidad Gastón Dachary (UGD)**.
-
-El objetivo principal del proyecto es transformar expresiones regulares en Autómatas Finitos Deterministas (AFD) mínimos y emitiros como funciones independientes en lenguaje C99 estándar, orientadas a entornos de recursos limitados (sistemas embebidos e IoT).
-
----
-
-## 🚀 Características Principales
-
-- **Sin Memoria Dinámica**: El código C generado no utiliza `malloc` ni liberaciones de memoria ($0$ bytes dinámicos).
-- **Sin Dependencias Externas**: Emite funciones en C estándar listas para integrarse en microcontroladores.
-- **Tiempo de Ejecución Lineal $O(n)$**: La validación recorre la cadena realizando un único acceso a matriz por carácter.
-- **Minimización de Hopcroft**: Reduce al mínimo el número de estados en tiempo de compilación para generar binarios livianos.
-- **Clases de Equivalencia ASCII**: Agrupa caracteres con transiciones equivalentes para comprimir la tabla de estados.
+**Materia:** Compiladores (2026) — Universidad Gastón Dachary  
+**Proyecto:** Trabajo Práctico Integrador  
 
 ---
 
-## 🏗️ Arquitectura del Pipeline
+## 👥 Integrantes del Equipo
+* **Daiana Micaela Sienra**
+* **Giuliano Hillegrand**[cite: 1]
+* **Martín Gonzalez**[cite: 1]
+
+---
+## 🌍 Entorno de Aplicación y Contexto del Compilador
+
+### ¿Dónde se aplica este compilador?
+**Regex2AFD** está diseñado para ser utilizado en **sistemas embebidos, dispositivos IoT y microcontroladores** con recursos de hardware (RAM y memoria Flash) estrictamente limitados[cite: 1].
+
+### Solución propuesta
+**Regex2AFD** funciona como un compilador de dominio específico que toma una expresión regular durante la etapa de compilación en la PC (Host) y genera una función en código C estándar (Target) altamente optimizada[cite: 1]:
+* **Sin memoria dinámica:** 0 asignaciones en tiempo de ejecución (verificable con Valgrind)[cite: 1].
+* **Sin dependencias externas:** Código C99 autónomo sin incluir librerías pesadas[cite: 1].
+* **Tiempo de ejecución lineal $O(N)$:** Garantiza respuesta determinista y predecible realizando un solo acceso a la tabla de transiciones por cada carácter[cite: 1].
+
+---
+
+## ⚙️ Arquitectura del Pipeline
+
+El compilador realiza 6 transformaciones consecutivas sobre el patrón de entrada[cite: 1]:
 
 ```text
-  [ Entrada: .regex ]
-           │
-           ▼
-  ┌─────────────────┐
-  │ 1. Frontend     │ ──► Lexer + Parser (Árbol AST)
-  └────────┬────────┘
-           │
-           ▼
-  ┌─────────────────┐
-  │ 2. Motor        │ ──► Thompson (AST -> AFND) -> Subconjuntos (AFND -> AFD)
-  └────────┬────────┘     -> Minimización de Hopcroft (AFD Mínimo)
-           │
-           ▼
-  ┌─────────────────┐
-  │ 3. Backend C    │ ──► Generación de tablas estáticas (validador.c)
-  └─────────────────┘
+Expresión Regular (.regex) 
+   └─► 1. Árbol de Sintaxis Abstracta (AST)
+   └─► 2. AFND (Construcción de Thompson)
+   └─► 3. AFD (Construcción de Subconjuntos + Agrupamiento en Clases)
+   └─► 4. AFD Mínimo (Algoritmo de Hopcroft)
+   ├─► 5. Código C (Función de validación C99)
+   └─► 6. Diagrama de Autómata (Graphviz .dot / PNG)
+```[cite: 1]
+
+---
+
+## 💻 Entorno de Desarrollo y Requisitos
+
+### Host (Máquina de desarrollo)
+* **Lenguaje principal:** Python 3.12+ (Pipeline de análisis léxico, sintáctico y síntesis)
