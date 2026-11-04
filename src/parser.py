@@ -6,9 +6,9 @@ Gramática (LL(1)), una función por no terminal:
     expr    → subexpr ('|' subexpr)*
     subexpr → factor factor*
     factor  → atom ('*' | '+' | '?')*
-    atom    → CHAR | CLASS | '(' expr ')'
+    atom    → CHAR | CLASS | REF | '(' expr ')'
 
-CHAR cubre literales y escapes; CLASS cubre '[...]' y el comodín '.'.
+CHAR cubre literales y escapes; CLASS cubre '[...]' y el comodín '.'; REF es una referencia '{NOMBRE}' a una definición.
 El token EOF del lexer actúa como marcador de fin de entrada '$'.
 Todo error de sintaxis se informa como RegexSyntaxError con la posición del
 token que lo provocó.
@@ -16,7 +16,7 @@ token que lo provocó.
 from errors import RegexSyntaxError
 from lexer import TokenType
 from ast_nodes import (
-    LiteralNode, ClassNode, ConcatNode, UnionNode,
+    LiteralNode, ClassNode, RefNode, ConcatNode, UnionNode,
     KleeneNode, PlusNode, OptionNode
 )
 
@@ -37,6 +37,8 @@ def describe_token(token) -> str:
     """Devuelve una descripción legible del token para usar en mensajes de error."""
     if token.type == TokenType.CHAR:
         return f"literal {token.value!r}"
+    if token.type == TokenType.REF:
+        return f"referencia {{{token.value}}}"
     return TOKEN_SYMBOLS[token.type]
 
 
@@ -111,13 +113,15 @@ class RegexParser:
         return atom
 
     def _parse_atom(self):
-        """Nivel 4: Átomos primarios (caracteres, clases o paréntesis)."""
+        """Nivel 4: Átomos primarios (caracteres, clases, referencias o paréntesis)."""
         token = self.peek()
 
         if self.match(TokenType.CHAR):
-            return LiteralNode(token.value)
+            return LiteralNode(token.value, token.pos)
         elif self.match(TokenType.CLASS):
-            return ClassNode(token.value)
+            return ClassNode(token.value, token.pos)
+        elif self.match(TokenType.REF):
+            return RefNode(token.value, token.pos)
         elif self.match(TokenType.LPAREN):
             expr = self._parse_expression()
             if not self.match(TokenType.RPAREN):
@@ -129,6 +133,6 @@ class RegexParser:
             return expr
         else:
             raise RegexSyntaxError(
-                "Error sintáctico: se esperaba un carácter, una clase o '(', "
+                "Error sintáctico: se esperaba un carácter, una clase, una referencia o '(', "
                 f"pero se encontró {describe_token(token)}",
                 token.pos)

@@ -6,19 +6,33 @@ class ASTNode:
 
 class LiteralNode(ASTNode):
     """Representa un carácter individual (ej. 'a', 'b')."""
-    def __init__(self, char: str):
+    def __init__(self, char: str, pos: int | None = None):
         self.char = char
+        self.pos = pos  # posición en el patrón; la usa el análisis semántico para informar errores
 
     def __repr__(self):
         return f"Literal('{self.char}')"
 
 class ClassNode(ASTNode):
     """Representa un conjunto o rango de caracteres (ej. [a-z], [a-zA-Z0-9_])."""
-    def __init__(self, chars: set):
+    def __init__(self, chars: set, pos: int | None = None):
         self.chars = set(chars)
+        self.pos = pos  # posición del '[' (o del '.') en el patrón
 
     def __repr__(self):
         return f"Class({sorted(list(self.chars))})"
+
+class RefNode(ASTNode):
+    """Representa una referencia a una definición con nombre (ej. {DIGITO}).
+
+    El análisis semántico la reemplaza por el AST de la definición referida.
+    """
+    def __init__(self, name: str, pos: int):
+        self.name = name
+        self.pos = pos  # posición del '{' en el patrón
+
+    def __repr__(self):
+        return f"Ref('{self.name}')"
 
 class ConcatNode(ASTNode):
     """Representa la concatenación de dos expresiones (ej. 'ab')."""

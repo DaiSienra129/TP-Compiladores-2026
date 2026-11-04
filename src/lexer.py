@@ -5,7 +5,8 @@ Funciona como una pequeña máquina de estados guiada por el carácter actual:
 
     carácter operador (| * + ? ( ))  -> emite el token del operador
     '.'                              -> comodín: CLASS con todo el alfabeto salvo '\\n'
-    '{' o '}'                        -> error léxico (cuantificadores acotados no soportados)
+    '{' identificador '}'            -> referencia a una definición: token REF
+    '{' en otro caso, o '}'          -> error léxico (cuantificadores acotados no soportados)
     '^' o '$' (fuera de clase)       -> error léxico (anclas no soportadas)
     '['                              -> escáner de clase (estado: dentro de una clase)
     '\\'                             -> escáner de escape (se consume un carácter más)
@@ -15,6 +16,7 @@ Funciona como una pequeña máquina de estados guiada por el carácter actual:
 Cumple el papel del marcador de fin de entrada `$` de los conjuntos FIRST/FOLLOW,
 de modo que el parser nunca se queda sin token que inspeccionar.
 """
+import re
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -24,6 +26,7 @@ from errors import LexicalError
 class TokenType(Enum):
     CHAR = auto()
     CLASS = auto()
+    REF = auto()  # referencia a una definición: {NOMBRE}
     PIPE = auto()
     STAR = auto()
     PLUS = auto()
@@ -47,6 +50,9 @@ ALPHABET: frozenset[str] = frozenset(chr(c) for c in range(256))
 
 # El comodín '.' coincide con cualquier carácter salvo el salto de línea, como en `re`.
 WILDCARD: frozenset[str] = ALPHABET - {'\n'}
+
+# Identificador válido para el nombre de una definición.
+IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
 
 ESCAPES: dict[str, str] = {'n': '\n', 't': '\t'}
 
@@ -77,6 +83,8 @@ class RegexLexer:
             elif char == '.':
                 self.pos += 1
                 tokens.append(Token(TokenType.CLASS, WILDCARD, start))
+            elif char == '{' and IDENTIFIER.match(self.pattern, start + 1):
+                tokens.append(self._scan_reference())
             elif char in '{}':
                 raise LexicalError(
                     "Error léxico: los cuantificadores acotados '{m,n}' no están soportados",
@@ -96,6 +104,19 @@ class RegexLexer:
                 tokens.append(Token(TokenType.CHAR, char, start))
         tokens.append(Token(TokenType.EOF, None, len(self.pattern)))
         return tokens
+
+    def _scan_reference(self) -> Token:
+        """Escanea una referencia como {DIGITO} a partir de '{'; el valor es el nombre."""
+        start = self.pos
+        name = IDENTIFIER.match(self.pattern, start + 1).group()
+        end = start + 1 + len(name)
+        if end >= len(self.pattern) or self.pattern[end] != '}':
+            raise LexicalError(
+                f"Error léxico: referencia sin cerrar, se esperaba '}}' "
+                f"después de '{{{name}'",
+                start)
+        self.pos = end + 1  # salta '}'
+        return Token(TokenType.REF, name, start)
 
     def _read_escape(self, pos: int) -> tuple[str, int]:
         """Lee el escape que comienza en la barra invertida ubicada en `pos`.
