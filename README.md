@@ -72,7 +72,7 @@ La gramática es LL(1) y el parser es descendente recursivo (una función por no
 
 ### Sintaxis soportada
 
-* Literales (`a`, `Z`, `7`) y escapes: `\n` (salto de línea), `\t` (tabulación) y `\` seguido de cualquier otro carácter lo vuelve literal (`\.`, `\*`, `\{`).
+* Literales (`a`, `Z`, `7`) y escapes: `\n` (salto de línea), `\t` (tabulación) y `\` seguido de un símbolo lo vuelve literal (`\.`, `\*`, `\{`, `\\`).
 * Comodín `.` (cualquier carácter salvo `\n`).
 * Clases de caracteres con rangos: `[abc]`, `[a-zA-Z0-9_]`.
 * Unión `|`, cuantificadores `*`, `+`, `?` y agrupación con paréntesis.
@@ -81,6 +81,7 @@ La gramática es LL(1) y el parser es descendente recursivo (una función por no
 
 * Clases negadas `[^...]`.
 * Cuantificadores acotados `{m,n}`.
+* Escapes de letras o dígitos distintos de `\n` y `\t`: clases abreviadas (`\d`, `\w`, `\s`) y retroreferencias (`\1`).
 
 ### Ejemplo de error sintáctico
 
