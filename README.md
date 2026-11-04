@@ -120,7 +120,33 @@ Ejecución sobre un archivo (imprime la tabla de símbolos, las advertencias y e
 uv run python src/main.py examples/identificador.regex
 ```
 
-Si el archivo es inválido, el mensaje se escribe en `stderr` y el programa termina con código 1. Sin argumentos, `src/main.py` ejecuta una demostración con un patrón fijo. Hay ejemplos en `examples/`.
+Si el archivo es inválido, el mensaje se escribe en `stderr` y el programa termina con código 1. Sin argumentos, `src/main.py` ejecuta una demostración con un patrón fijo.
+
+Para probar un patrón suelto sin crear un archivo, se puede usar la sustitución de procesos de la shell:
+
+```bash
+uv run python src/main.py <(printf '(a|b)*abb\n')
+uv run python src/main.py <(printf 'D = [0-9]\n%%%%\n{D}+\n')   # %%%% en printf produce %%
+```
+
+### Ejemplos incluidos
+
+| Archivo | Describe | Acepta, por ejemplo |
+|---------|----------|---------------------|
+| `identificador.regex` | Identificador de C | `contador2` |
+| `trama_sensor.regex` | Trama de un sensor IoT | `TEMP=23.5;HUM=40` |
+| `ipv4.regex` | Dirección IPv4 (octetos de 0 a 255) | `192.168.0.1` |
+| `url.regex` | URL http/https simplificada | `https://www.ugd.edu.ar:8080/carreras?anio=5` |
+| `email.regex` | Correo electrónico simplificado | `alumno.ugd@gmail.com` |
+| `fecha_iso.regex` | Fecha AAAA-MM-DD | `2026-11-14` |
+| `hora.regex` | Hora de 24 horas con segundos opcionales | `08:05:30` |
+| `mac.regex` | Dirección MAC | `3C:52:82:0A:FF:01` |
+| `uuid.regex` | UUID 8-4-4-4-12 | `123e4567-e89b-12d3-a456-426614174000` |
+| `color_hex.regex` | Color CSS de 3 o 6 dígitos | `#1A2b3C` |
+| `numero_decimal.regex` | Número con signo y exponente opcionales | `6.02e23` |
+| `patente_argentina.regex` | Patente anterior o Mercosur | `AB123CD` |
+
+`tests/test_examples.py` verifica cada ejemplo con cadenas que debe aceptar y rechazar, traduciendo su AST a una expresión del módulo `re` de Python.
 
 ---
 

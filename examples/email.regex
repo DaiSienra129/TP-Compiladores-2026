@@ -1,0 +1,6 @@
+# Correo electrónico simplificado (ej. alumno.ugd@gmail.com)
+LOCAL    = [a-zA-Z0-9._%+\-]+
+ETIQUETA = [a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?
+TLD      = [a-zA-Z][a-zA-Z]+
+%%
+{LOCAL}@({ETIQUETA}\.)+{TLD}

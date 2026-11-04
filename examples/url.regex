@@ -1,0 +1,11 @@
+# URL http/https simplificada (ej. https://www.ugd.edu.ar:8080/carreras/sistemas?anio=5&plan=2)
+LETRA    = [a-zA-Z]
+DIGITO   = [0-9]
+ALNUM    = {LETRA}|{DIGITO}
+ETIQUETA = {ALNUM}({ALNUM}|-)*
+DOMINIO  = {ETIQUETA}(\.{ETIQUETA})+
+PUERTO   = :{DIGITO}+
+SEGMENTO = /[a-zA-Z0-9._~%\-]*
+CONSULTA = \?[a-zA-Z0-9._~%&=\-]*
+%%
+https?://{DOMINIO}{PUERTO}?{SEGMENTO}*{CONSULTA}?

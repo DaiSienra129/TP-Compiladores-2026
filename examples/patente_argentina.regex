@@ -1,0 +1,7 @@
+# Patente de auto argentina: formato anterior AAA999 o Mercosur AA999AA
+LETRA    = [A-Z]
+DIGITO   = [0-9]
+ANTERIOR = {LETRA}{LETRA}{LETRA}{DIGITO}{DIGITO}{DIGITO}
+MERCOSUR = {LETRA}{LETRA}{DIGITO}{DIGITO}{DIGITO}{LETRA}{LETRA}
+%%
+{ANTERIOR}|{MERCOSUR}

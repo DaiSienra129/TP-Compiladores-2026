@@ -1,0 +1,6 @@
+# Dirección IPv4: cuatro octetos de 0 a 255 separados por puntos (ej. 192.168.0.1)
+DIGITO  = [0-9]
+NO_CERO = [1-9]
+OCTETO  = {DIGITO}|{NO_CERO}{DIGITO}|1{DIGITO}{DIGITO}|2[0-4]{DIGITO}|25[0-5]
+%%
+{OCTETO}\.{OCTETO}\.{OCTETO}\.{OCTETO}
