@@ -46,10 +46,10 @@ Expresión Regular (.regex)
 expr    → subexpr ('|' subexpr)*
 subexpr → factor factor*
 factor  → atom ('*' | '+' | '?')*
-atom    → CHAR | CLASS | '(' expr ')'
+atom    → CHAR | CLASS | REF | '(' expr ')'
 ```
 
-`CHAR` cubre los literales y los escapes; `CLASS` cubre las clases `[...]` y el comodín `.`.
+`CHAR` cubre los literales y los escapes; `CLASS` cubre las clases `[...]` y el comodín `.`; `REF` es una referencia `{NOMBRE}` a una definición (véase el formato del archivo de entrada).
 
 ### Precedencia y asociatividad
 
@@ -65,10 +65,10 @@ La gramática es LL(1) y el parser es descendente recursivo (una función por no
 
 | No terminal | PRIMERO | SIGUIENTE |
 |-------------|-------|--------|
-| `expr` | `CHAR`, `CLASS`, `(` | `)`, `$` |
-| `subexpr` | `CHAR`, `CLASS`, `(` | `\|`, `)`, `$` |
-| `factor` | `CHAR`, `CLASS`, `(` | `CHAR`, `CLASS`, `(`, `\|`, `)`, `$` |
-| `atom` | `CHAR`, `CLASS`, `(` | `*`, `+`, `?`, `CHAR`, `CLASS`, `(`, `\|`, `)`, `$` |
+| `expr` | `CHAR`, `CLASS`, `REF`, `(` | `)`, `$` |
+| `subexpr` | `CHAR`, `CLASS`, `REF`, `(` | `\|`, `)`, `$` |
+| `factor` | `CHAR`, `CLASS`, `REF`, `(` | `CHAR`, `CLASS`, `REF`, `(`, `\|`, `)`, `$` |
+| `atom` | `CHAR`, `CLASS`, `REF`, `(` | `*`, `+`, `?`, `CHAR`, `CLASS`, `REF`, `(`, `\|`, `)`, `$` |
 
 ### Sintaxis soportada
 
@@ -76,11 +76,12 @@ La gramática es LL(1) y el parser es descendente recursivo (una función por no
 * Comodín `.` (cualquier carácter salvo `\n`).
 * Clases de caracteres con rangos: `[abc]`, `[a-zA-Z0-9_]`. Como en `re`, un `]` inmediatamente después de `[` es un literal (`[]a]` equivale a `]` o `a`), por lo que `[]` queda sin cerrar.
 * Unión `|`, cuantificadores `*`, `+`, `?` y agrupación con paréntesis.
+* Referencias `{NOMBRE}` a definiciones con nombre (`NOMBRE` es un identificador `[A-Za-z_][A-Za-z0-9_]*`). Dentro de una clase, las llaves son literales.
 
 ### No soportada (error léxico)
 
 * Clases negadas `[^...]`.
-* Cuantificadores acotados `{m,n}`.
+* Cuantificadores acotados `{m,n}` (`{2}`, `{2,3}`, `{}`): toda `{` que no abre una referencia válida es un error léxico. Una referencia sin cerrar, como `{NOMBRE`, también lo es.
 * Anclas `^` y `$` fuera de clases: el patrón siempre se valida contra la cadena completa (`\^` y `\$` son literales).
 * Rangos invertidos en clases, como `[z-a]`.
 * Escapes de letras o dígitos distintos de `\n` y `\t`: clases abreviadas (`\d`, `\w`, `\s`) y retroreferencias (`\1`).
@@ -90,6 +91,64 @@ La gramática es LL(1) y el parser es descendente recursivo (una función por no
 ```text
 (a
 Error sintáctico: falta el paréntesis de cierre ')' para el '(' de la posición 0 (posición 2)
+```
+
+Cuando el error proviene de un archivo, el mensaje agrega la línea (base 1) y la posición pasa a ser la columna (base 0) dentro de esa línea: `... (línea 2, posición 7)`.
+
+---
+
+## 📄 Formato del archivo de entrada
+
+Para dar nombre a las subexpresiones, el compilador acepta archivos `.regex` con definiciones al estilo de Flex:
+
+```text
+# comentario
+DIGITO = [0-9]
+LETRA  = [a-zA-Z_]
+%%
+{LETRA}({LETRA}|{DIGITO})*
+```
+
+* La sección de definiciones es opcional y termina en una línea que es exactamente `%%`. Después va el patrón principal, en una única línea no vacía (se permiten líneas en blanco y comentarios).
+* En las definiciones, las líneas en blanco y las que comienzan con `#` se ignoran. Cada otra línea es `NOMBRE = regex`, con `NOMBRE` un identificador `[A-Za-z_][A-Za-z0-9_]*`.
+* Los espacios alrededor del nombre, del `=` y de la regex se ignoran. Un espacio literal al principio o al final de la regex debe escribirse `\ `.
+* Un archivo sin `%%` contiene solo el patrón principal (la primera línea que no sea vacía ni comentario; más de una es un error). Un patrón que deba comenzar con `#` se escribe `\#`.
+* `{NOMBRE}` referencia una definición. Las definiciones pueden referenciar otras declaradas más adelante en el archivo.
+
+Ejecución sobre un archivo (imprime la tabla de símbolos, las advertencias y el AST expandido):
+
+```bash
+uv run python src/main.py examples/identificador.regex
+```
+
+Si el archivo es inválido, el mensaje se escribe en `stderr` y el programa termina con código 1. Sin argumentos, `src/main.py` ejecuta una demostración con un patrón fijo. Hay ejemplos en `examples/`.
+
+---
+
+## 🔎 Análisis semántico y tabla de símbolos
+
+Tras el análisis léxico y sintáctico de cada definición y del patrón principal, la fase semántica construye la **tabla de símbolos** (nombre, AST, línea y cantidad de usos de cada definición) y valida el AST contra ella.
+
+**Errores** (detienen la compilación):
+
+* Definición duplicada (el mensaje indica la línea de la primera).
+* Referencia a un nombre sin definición.
+* Referencia circular, directa (`A = {A}`) o indirecta; el mensaje muestra el ciclo, por ejemplo `A -> B -> A`.
+* Carácter fuera del alfabeto de 256 caracteres (`chr(0)` a `chr(255)`).
+
+**Advertencias** (no detienen la compilación):
+
+* Definición que nunca se usa.
+
+Si no hay errores, el resultado es el AST del patrón principal con cada `{NOMBRE}` reemplazado por el AST de su definición, de modo que las fases posteriores no ven referencias.
+
+Ejemplo de error semántico:
+
+```text
+A = {B}
+%%
+{A}x
+Error semántico: la referencia '{B}' no tiene definición (línea 1, posición 4)
 ```
 
 ---
