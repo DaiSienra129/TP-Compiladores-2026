@@ -26,7 +26,7 @@
 
 ## ⚙️ Arquitectura del Pipeline
 
-El compilador realiza 6 transformaciones consecutivas sobre el patrón de entrada:
+El compilador realiza 5 transformaciones consecutivas sobre el patrón de entrada:
 
 ```text
 Expresión Regular (.regex) 
@@ -34,8 +34,7 @@ Expresión Regular (.regex)
    └─► 2. AFND (Construcción de Thompson)
    └─► 3. AFD (Construcción de Subconjuntos + Agrupamiento en Clases)
    └─► 4. AFD Mínimo (Algoritmo de Hopcroft)
-   ├─► 5. Código C (Función de validación C99)
-   └─► 6. Diagrama de Autómata (Graphviz .dot / PNG)
+   └─► 5. Código C (Función de validación C99)
 ```
 
 ---
