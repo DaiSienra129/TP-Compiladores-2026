@@ -96,6 +96,41 @@ def test_too_many_arguments_prints_usage(capsys):
     assert "Uso: python src/main.py" in capsys.readouterr().err
 
 
+def test_unknown_option_prints_usage(capsys):
+    assert main(["--arbol", str(EXAMPLES / "identificador.regex")]) == 1
+    captured = capsys.readouterr()
+    assert "opción desconocida '--arbol'" in captured.err
+    assert captured.out == ""
+
+
+# --- Árbol de texto (--tree) ----------------------------------------------------------
+
+@pytest.mark.parametrize("flag", ["--tree", "-t"])
+def test_tree_flag_prints_ast_as_tree(flag, capsys):
+    # El flag puede ir antes o después del archivo.
+    for args in ([flag, str(EXAMPLES / "identificador.regex")],
+                 [str(EXAMPLES / "identificador.regex"), flag]):
+        assert main(args) == 0
+        lines = capsys.readouterr().out.splitlines()
+        tree = lines[lines.index("Árbol AST expandido:") + 1:]
+        assert tree[0] == "  Concatenación"
+        assert "  ├── Clase [A-Z_a-z]" in tree
+
+
+def test_without_tree_flag_ast_stays_on_one_line(capsys):
+    assert main([str(EXAMPLES / "identificador.regex")]) == 0
+    out = capsys.readouterr().out
+    assert "Concat(" in out
+    assert "├──" not in out
+
+
+def test_tree_flag_alone_runs_the_demo_as_tree(capsys):
+    assert main(["--tree"]) == 0
+    out = capsys.readouterr().out
+    assert "Árbol AST generado:" in out
+    assert "  ├── Clase [A-Z_a-z]" in out.splitlines()
+
+
 # --- Ejecución real como script ------------------------------------------------------
 
 def test_script_entry_point_returns_process_exit_code(tmp_path):

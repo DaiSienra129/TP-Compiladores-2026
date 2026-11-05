@@ -129,6 +129,21 @@ uv run python src/main.py <(printf '(a|b)*abb\n')
 uv run python src/main.py <(printf 'D = [0-9]\n%%%%\n{D}+\n')   # %%%% en printf produce %%
 ```
 
+Con `--tree` (o `-t`), el AST se imprime como árbol de texto en lugar de en una sola línea. Es solo una vista: las clases se compactan en rangos, las concatenaciones y uniones encadenadas se muestran como un único nodo con varios hijos, y a partir de 200 nodos la salida se trunca.
+
+```text
+$ uv run python src/main.py --tree <(printf '(a|b)*c[0-9]\n')
+...
+Árbol AST expandido:
+  Concatenación
+  ├── Kleene *
+  │   └── Unión |
+  │       ├── Literal 'a'
+  │       └── Literal 'b'
+  ├── Literal 'c'
+  └── Clase [0-9]
+```
+
 ### Ejemplos incluidos
 
 | Archivo | Describe | Acepta, por ejemplo |
