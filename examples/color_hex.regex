@@ -1,0 +1,6 @@
+# Color CSS hexadecimal de 3 o 6 dígitos (ej. #fff o #1A2b3C)
+# El '#' inicial se escribe '\#' porque una línea que empieza con '#' es un comentario.
+HEX = [0-9a-fA-F]
+RGB = {HEX}{HEX}{HEX}
+%%
+\#{RGB}({RGB})?

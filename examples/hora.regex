@@ -1,0 +1,5 @@
+# Hora de 24 horas HH:MM con segundos opcionales (ej. 23:59 o 08:05:30)
+HORA   = [01][0-9]|2[0-3]
+MINUTO = [0-5][0-9]
+%%
+{HORA}:{MINUTO}(:{MINUTO})?

@@ -1,0 +1,7 @@
+# Fecha ISO 8601 AAAA-MM-DD (ej. 2026-11-14); no verifica los días de cada mes
+DIGITO = [0-9]
+ANIO   = {DIGITO}{DIGITO}{DIGITO}{DIGITO}
+MES    = 0[1-9]|1[0-2]
+DIA    = 0[1-9]|[12]{DIGITO}|3[01]
+%%
+{ANIO}-{MES}-{DIA}

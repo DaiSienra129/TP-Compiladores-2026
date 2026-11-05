@@ -1,0 +1,5 @@
+# Dirección MAC: seis bytes hexadecimales separados por ':' (ej. 3C:52:82:0A:FF:01)
+HEX  = [0-9a-fA-F]
+BYTE = {HEX}{HEX}
+%%
+{BYTE}:{BYTE}:{BYTE}:{BYTE}:{BYTE}:{BYTE}
