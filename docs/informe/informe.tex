@@ -74,7 +74,7 @@ Este trabajo presenta \textbf{Regex2AFD}, un compilador hecho en Python que toma
 % ============================================================================
 \section{Introducción}
 % ============================================================================
-En sistemas embebidos e IoT la memoria y el procesamiento son limitados, y muchas veces hay que validar cadenas de texto (identificadores, tramas de sensores, comandos por puerto serie). Hay dos formas comunes de hacerlo y las dos tienen problemas: los validadores hechos a mano con \texttt{if/switch} anidados son largos y es fácil equivocarse, y las librerías de expresiones regulares (\texttt{regex.h} de POSIX o PCRE2) gastan mucha memoria, usan asignación dinámica y por el \emph{backtracking} el tiempo de ejecución puede no tener cota.
+En sistemas embebidos e IoT la memoria y el procesamiento son limitados, y muchas veces hay que validar cadenas de texto (identificadores, tramas de sensores, comandos por puerto serie). Hay dos formas comunes de hacerlo y las dos tienen problemas: los validadores hechos a mano con \texttt{if/switch} anidados son largos y es fácil equivocarse, y las librerías de expresiones regulares (\texttt{regex.h} de POSIX o PCRE2) gastan mucha memoria y usan asignación dinámica. Además, su tiempo de ejecución depende de la implementación: las que usan \emph{backtracking}, como PCRE2, pueden tardar un tiempo exponencial con ciertos patrones.
 
 Para resolver esto, proponemos \textbf{Regex2AFD}, un compilador que hace todo el trabajo pesado en tiempo de compilación (en la PC \emph{host}) y genera una función C muy liviana, $O(n)$, que solo recorre una tabla de transiciones estática. No hace falta ningún motor de expresiones regulares en ejecución.
 
@@ -255,6 +255,8 @@ La función generada fue entre 2,2 y 11,5 veces más rápida. La ventaja es mayo
 % ============================================================================
 Las librerías como \texttt{regex.h} o \texttt{PCRE2} trabajan en tiempo de ejecución. Regex2AFD, en cambio, sigue la idea de herramientas ya conocidas como \texttt{re2c} y \texttt{Ragel}, que hacen todo el trabajo durante la compilación (Tabla~\ref{tab:comparacion}).
 
+El tiempo de ejecución de \texttt{regex.h} depende de la biblioteca que lo implemente. La de glibc, por ejemplo, no usa \emph{backtracking} salvo con retroreferencias: con patrones como \texttt{(a|aa)*b} o \texttt{(a+)+b}, que hacen explotar a los motores con \emph{backtracking}, medimos un tiempo lineal en cadenas de hasta 16\,000 caracteres. La diferencia de Regex2AFD es que el tiempo lineal está garantizado por construcción y no depende de la biblioteca de la plataforma.
+
 \begin{table}[htbp]
 \centering
 \caption{Comparación de Regex2AFD frente a las alternativas tradicionales.}
@@ -267,7 +269,7 @@ Las librerías como \texttt{regex.h} o \texttt{PCRE2} trabajan en tiempo de ejec
 \midrule
 \textbf{Dependencias externas} & No         & Sí                              & \textbf{No} \\
 \textbf{Memoria dinámica}      & No         & Sí                              & \textbf{No ($0$ bytes)} \\
-\textbf{Tiempo de ejecución}   & Variable   & No acotado (\emph{backtracking}) & \textbf{Lineal $O(n)$} \\
+\textbf{Tiempo de ejecución}   & Variable   & Depende de la implementación & \textbf{Lineal $O(n)$} \\
 \textbf{Mantenibilidad}        & Dificultosa & Alta                           & \textbf{Alta} \\
 
 \bottomrule
