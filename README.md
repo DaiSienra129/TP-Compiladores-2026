@@ -210,3 +210,27 @@ make test PYTEST="python3 -m pytest"   # sin uv, con pytest instalado
 ```
 
 Los errores conocidos están marcados como `xfail` estrictos: al corregir uno, quitar su marca.
+
+### Memoria y desempeño del código generado
+
+Estas pruebas requieren `gcc` (o `clang`); la de memoria, además, `valgrind`. Si faltan, los tests correspondientes se omiten.
+
+```bash
+make valgrind   # genera build/identificador.c, lo compila con build/main.c y lo corre con Valgrind
+make bench      # compara 10^6 validaciones del código generado contra regex.h de POSIX
+```
+
+`make valgrind` debe informar `total heap usage: 0 allocs, 0 frees, 0 bytes allocated`. El programa de prueba no usa `stdio`, porque glibc reserva en el heap el buffer de `stdout` y Valgrind contaría esa reserva.
+
+`make bench` traduce el AST de cada ejemplo a una expresión regular extendida de POSIX y verifica que el validador y `regexec()` clasifiquen igual 1000 cadenas (muestras y mutaciones aleatorias con semilla fija). Luego mide el tiempo medio por cadena de cada uno. Resultado de referencia (gcc `-O2`, x86-64):
+
+```text
+ejemplo                  Regex2AFD     regex.h  aceleración  aceptadas  discrepancias
+email                      15.5 ns     90.9 ns         5.9x   341/1000              0
+identificador               6.7 ns     76.5 ns        11.5x   558/1000              0
+ipv4                        7.4 ns     62.1 ns         8.4x   165/1000              0
+url                        35.8 ns    134.6 ns         3.8x   309/1000              0
+uuid                       38.7 ns     83.3 ns         2.2x    72/1000              0
+```
+
+Los tiempos dependen de la máquina. La medición no incluye `regcomp()`: compara solo la validación de cada cadena, con la expresión ya compilada.

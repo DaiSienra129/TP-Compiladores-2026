@@ -6,7 +6,7 @@ BUILD_DIR = build
 CFLAGS = -std=c99 -g -O0 -Wall -Wextra -Werror
 PYTEST ?= uv run pytest
 
-.PHONY: all help test run valgrind clean
+.PHONY: all help test run valgrind bench clean
 
 # Regla por defecto (se ejecuta con 'make' a secas)
 all: help
@@ -16,6 +16,7 @@ help:
 	@echo "  make test   - Ejecuta la suite de pytest"
 	@echo "  make run    - Ejecuta el punto de entrada del compilador"
 	@echo "  make valgrind - Genera el validador de identificadores y lo corre con Valgrind"
+	@echo "  make bench  - Compara el tiempo del código generado contra regex.h de POSIX"
 	@echo "  make clean  - Elimina los archivos generados en out/"
 
 test:
@@ -30,6 +31,10 @@ valgrind:
 	uv run python $(SRC_DIR)/main.py examples/identificador.regex -o $(BUILD_DIR)/identificador -f validar_id > /dev/null
 	$(CC) $(CFLAGS) $(BUILD_DIR)/main.c $(BUILD_DIR)/identificador.c -o $(BUILD_DIR)/prueba_regex
 	valgrind --leak-check=full --error-exitcode=99 $(BUILD_DIR)/prueba_regex
+
+# Mide 10^6 validaciones con el código generado y con regex.h (sección 7 del informe).
+bench:
+	uv run python bench/benchmark.py
 
 # Elimina los archivos generados
 clean:
