@@ -3,10 +3,12 @@ SRC_DIR = src
 TEST_DIR = tests
 OUT_DIR = out
 BUILD_DIR = build
+INFORME_DIR = docs/informe
+TEXLIVE_IMAGE = texlive/texlive:latest
 CFLAGS = -std=c99 -g -O0 -Wall -Wextra -Werror
 PYTEST ?= uv run pytest
 
-.PHONY: all help test run valgrind bench clean
+.PHONY: all help test run valgrind bench informe clean
 
 # Regla por defecto (se ejecuta con 'make' a secas)
 all: help
@@ -17,6 +19,7 @@ help:
 	@echo "  make run    - Ejecuta el punto de entrada del compilador"
 	@echo "  make valgrind - Genera el validador de identificadores y lo corre con Valgrind"
 	@echo "  make bench  - Compara el tiempo del código generado contra regex.h de POSIX"
+	@echo "  make informe - Compila docs/informe/informe.tex a PDF con TeX Live en Docker"
 	@echo "  make clean  - Elimina los archivos generados en out/"
 
 test:
@@ -35,6 +38,12 @@ valgrind:
 # Mide 10^6 validaciones con el código generado y con regex.h (sección 7 del informe).
 bench:
 	uv run python bench/benchmark.py
+
+# Compila el informe con la imagen oficial de TeX Live (incluye la clase llncs).
+# Los archivos auxiliares se eliminan al terminar; solo queda el PDF.
+informe:
+	docker run --rm -u "$$(id -u):$$(id -g)" -v "$(CURDIR)/$(INFORME_DIR)":/w -w /w $(TEXLIVE_IMAGE) \
+		sh -c 'latexmk -pdf -interaction=nonstopmode -halt-on-error informe.tex && latexmk -c informe.tex'
 
 # Elimina los archivos generados
 clean:
