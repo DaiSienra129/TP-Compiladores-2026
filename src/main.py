@@ -1,11 +1,16 @@
 """Punto de entrada del compilador.
 
-Uso: python src/main.py [--tree] [--code] [-o salida] [-f funcion] [archivo.regex]
+Uso: python src/main.py [--tree] [--code] [-o salida] [-f funcion] [--main] [archivo.regex]
 
 Con un archivo, ejecuta las fases de análisis (formato, léxica, sintáctica y
 semántica) e imprime la tabla de símbolos, las advertencias y el AST expandido.
 Sin archivo, muestra una demostración con un patrón fijo. Con `--tree` (o `-t`),
 el AST se imprime como árbol de texto en lugar de en una sola línea.
+
+Generación de código: `--code` (o `-c`) imprime el resumen de los autómatas y el
+código C99; `-o salida` escribe salida.c y salida.h; `-f nombre` elige el nombre
+de la función; `--main` (junto con `-o`) escribe además salida_main.c, un
+programa de prueba que valida cadenas recibidas por argumento o por stdin.
 """
 
 from pathlib import Path
@@ -13,7 +18,7 @@ import re
 import sys
 
 from ast_tree import render_tree
-from codegen import compile_ast, generate_c_code, write_c_files
+from codegen import generate_c_code, write_c_files, write_test_main
 from dfa import nfa_to_dfa
 from errors import CompilerError
 from hopcroft import minimize_dfa
@@ -23,7 +28,8 @@ from semantic import analyze
 from source import parse_source
 from thompson import ast_to_nfa
 
-USAGE = "Uso: python src/main.py [--tree] [archivo.regex]"
+USAGE = ("Uso: python src/main.py [--tree] [--code] [-o salida] [-f funcion] [--main] "
+         "[archivo.regex]")
 TREE_FLAGS = {"--tree", "-t"}
 CODE_FLAGS = {"--code", "-c"}
 
@@ -44,7 +50,8 @@ def print_ast(title: str, ast, tree: bool) -> None:
         print(f"  {ast}")
 
 
-def run_backend(ast, func_name: str, show_code: bool, output_base: str | None) -> None:
+def run_backend(ast, func_name: str, show_code: bool, output_base: str | None,
+                with_main: bool = False) -> None:
     """Ejecuta las etapas de Síntesis y Generación de Código C99."""
     nfa = ast_to_nfa(ast)
     raw_dfa = nfa_to_dfa(nfa)
@@ -64,10 +71,14 @@ def run_backend(ast, func_name: str, show_code: bool, output_base: str | None) -
     if output_base is not None:
         c_path, h_path = write_c_files(min_dfa, output_base, func_name=func_name)
         print(f"\nArchivos C99 generados: {c_path}, {h_path}")
+        if with_main:
+            main_path = write_test_main(output_base, func_name)
+            print(f"Programa de prueba: {main_path}")
+            print(f"  Compilar: gcc -std=c99 {c_path} {main_path} -o {Path(output_base)}")
 
 
 def demo(tree: bool = False, show_code: bool = False, output_base: str | None = None,
-         func_name: str | None = None):
+         func_name: str | None = None, with_main: bool = False):
     patron_prueba = "[a-zA-Z_][a-zA-Z0-9_]*"
     print(f"Patrón de entrada: {patron_prueba}")
 
@@ -86,11 +97,12 @@ def demo(tree: bool = False, show_code: bool = False, output_base: str | None = 
     print_ast("Árbol AST generado", ast, tree)
 
     if show_code or output_base is not None:
-        run_backend(ast, func_name or "validar_id", show_code, output_base)
+        run_backend(ast, func_name or "validar_id", show_code, output_base, with_main)
 
 
 def compile_file(path: str, tree: bool = False, show_code: bool = False,
-                 output_base: str | None = None, func_name: str | None = None) -> None:
+                 output_base: str | None = None, func_name: str | None = None,
+                 with_main: bool = False) -> None:
     """Analiza un archivo .regex, imprime el resultado y opcionalmente genera C99."""
     with open(path, encoding="utf-8") as file:
         result = analyze(parse_source(file.read()))
@@ -114,7 +126,7 @@ def compile_file(path: str, tree: bool = False, show_code: bool = False,
 
     if show_code or output_base is not None:
         default_fn = _sanitize_func_name(f"validar_{Path(path).stem}")
-        run_backend(result.ast, func_name or default_fn, show_code, output_base)
+        run_backend(result.ast, func_name or default_fn, show_code, output_base, with_main)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -123,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     show_code = False
     output_base: str | None = None
     func_name: str | None = None
+    with_main = False
     positional: list[str] = []
 
     i = 0
@@ -132,6 +145,8 @@ def main(argv: list[str] | None = None) -> int:
             tree = True
         elif arg in CODE_FLAGS:
             show_code = True
+        elif arg == "--main":
+            with_main = True
         elif arg in ("-o", "--output"):
             if i + 1 >= len(raw_args):
                 print(f"Error: la opción '{arg}' requiere una ruta de salida\n{USAGE}", file=sys.stderr)
@@ -154,11 +169,14 @@ def main(argv: list[str] | None = None) -> int:
     if len(positional) > 1:
         print(USAGE, file=sys.stderr)
         return 1
+    if with_main and output_base is None:
+        print(f"Error: la opción '--main' requiere '-o salida'\n{USAGE}", file=sys.stderr)
+        return 1
     if not positional:
-        demo(tree, show_code, output_base, func_name)
+        demo(tree, show_code, output_base, func_name, with_main)
         return 0
     try:
-        compile_file(positional[0], tree, show_code, output_base, func_name)
+        compile_file(positional[0], tree, show_code, output_base, func_name, with_main)
     except CompilerError as error:
         print(error, file=sys.stderr)
         return 1

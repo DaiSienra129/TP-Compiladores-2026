@@ -148,3 +148,56 @@ def write_c_files(
     h_path.write_text(h_code, encoding="utf-8")
     c_path.write_text(c_code, encoding="utf-8")
     return c_path, h_path
+
+TEST_MAIN = """\
+/* Programa de prueba generado por Regex2AFD para {func_name}().
+ *
+ * Uso: {program} cadena...       valida cada argumento
+ *      {program} < archivo       valida cada línea de la entrada estándar
+ *
+ * Imprime ACEPTA o rechaza por cada cadena y termina con código 0 si todas
+ * se aceptaron, o 1 si alguna se rechazó.
+ *
+ * Usa stdio para mostrar los resultados: glibc reserva en el heap el buffer de
+ * stdout, así que este programa no sirve para medir memoria con Valgrind.
+ */
+#include <stdio.h>
+#include <string.h>
+#include "{header_name}"
+
+static int probar(const char *s) {{
+    int ok = {func_name}(s) != 0;
+    printf("%-7s %s\\n", ok ? "ACEPTA" : "rechaza", s);
+    return ok;
+}}
+
+int main(int argc, char **argv) {{
+    int rechazadas = 0;
+    if (argc > 1) {{
+        for (int i = 1; i < argc; i++) {{
+            rechazadas += !probar(argv[i]);
+        }}
+    }} else {{
+        char linea[4096];
+        while (fgets(linea, sizeof linea, stdin) != NULL) {{
+            linea[strcspn(linea, "\\r\\n")] = '\\0';
+            rechazadas += !probar(linea);
+        }}
+    }}
+    return rechazadas > 0;
+}}
+"""
+
+
+def generate_test_main(func_name: str, header_name: str, program: str = "programa") -> str:
+    """Genera un main de prueba en C99 que llama a `func_name` con cada cadena recibida."""
+    return TEST_MAIN.format(func_name=func_name, header_name=header_name, program=program)
+
+
+def write_test_main(output_base: str | Path, func_name: str) -> Path:
+    """Escribe <output_base>_main.c, que incluye <output_base>.h y prueba la función."""
+    base = Path(output_base)
+    main_path = base.with_name(base.name + "_main.c")
+    code = generate_test_main(func_name, base.with_suffix(".h").name, program=base.name)
+    main_path.write_text(code, encoding="utf-8")
+    return main_path

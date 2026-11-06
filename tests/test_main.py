@@ -1,4 +1,5 @@
 """Tests de la interfaz de línea de comandos (src/main.py)."""
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -148,3 +149,53 @@ def test_script_entry_point_returns_process_exit_code(tmp_path):
         capture_output=True, text=True, check=False)
     assert bad.returncode == 1
     assert "no tiene definición" in bad.stderr
+
+
+# --- Programa de prueba en C (--main) ---------------------------------------------------
+
+CC = shutil.which("gcc") or shutil.which("clang")
+PATENTE = str(EXAMPLES / "patente_argentina.regex")
+
+
+def test_main_flag_requires_output(capsys):
+    assert main([PATENTE, "--main"]) == 1
+    captured = capsys.readouterr()
+    assert "la opción '--main' requiere '-o salida'" in captured.err
+    assert captured.out == ""
+
+
+def test_main_flag_writes_test_program(tmp_path, capsys):
+    base = tmp_path / "patentes"
+    assert main([PATENTE, "-o", str(base), "-f", "validar_patente", "--main"]) == 0
+    out = capsys.readouterr().out
+    main_c = tmp_path / "patentes_main.c"
+    assert f"Programa de prueba: {main_c}" in out
+    code = main_c.read_text(encoding="utf-8")
+    assert '#include "patentes.h"' in code
+    assert "validar_patente(s)" in code
+
+
+def test_without_main_flag_no_test_program_is_written(tmp_path):
+    assert main([PATENTE, "-o", str(tmp_path / "patentes")]) == 0
+    assert not (tmp_path / "patentes_main.c").exists()
+
+
+@pytest.mark.skipif(CC is None, reason="se necesita gcc o clang")
+def test_generated_test_program_compiles_and_validates(tmp_path):
+    base = tmp_path / "patentes"
+    assert main([PATENTE, "-o", str(base), "-f", "validar_patente", "--main"]) == 0
+    binary = tmp_path / "patentes_bin"
+    subprocess.run(
+        [CC, "-std=c99", "-Wall", "-Wextra", "-Werror",
+         str(base.with_suffix(".c")), str(tmp_path / "patentes_main.c"), "-o", str(binary)],
+        check=True)
+
+    # Cadenas por argumento: código 1 si alguna se rechaza.
+    run = subprocess.run([str(binary), "AB123CD", "abc123"], capture_output=True, text=True)
+    assert run.returncode == 1
+    assert run.stdout.splitlines() == ["ACEPTA  AB123CD", "rechaza abc123"]
+
+    # Cadenas por stdin, con fin de línea de Windows: código 0 si todas se aceptan.
+    run = subprocess.run([str(binary)], input="AB123CD\r\nABC123\n", capture_output=True, text=True)
+    assert run.returncode == 0
+    assert run.stdout.splitlines() == ["ACEPTA  AB123CD", "ACEPTA  ABC123"]
