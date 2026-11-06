@@ -7,3 +7,6 @@ __pycache__/
 *.out
 .venv/
 .pytest_cache/
+*.vscode/
+build/prueba_regex
+*.exe
