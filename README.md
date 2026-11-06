@@ -234,3 +234,13 @@ uuid                       38.7 ns     83.3 ns         2.2x    72/1000          
 ```
 
 Los tiempos dependen de la máquina. La medición no incluye `regcomp()`: compara solo la validación de cada cadena, con la expresión ya compilada.
+
+---
+
+## 📑 Informe
+
+El informe en LaTeX está en `docs/informe/informe.tex`, junto con su PDF compilado. Después de modificar el `.tex`, hay que regenerar el PDF y commitear los dos archivos juntos:
+
+```bash
+make informe   # compila con la imagen texlive/texlive en Docker (incluye la clase llncs)
+```
