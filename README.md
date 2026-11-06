@@ -263,3 +263,5 @@ El informe en LaTeX está en `docs/informe/informe.tex`, junto con su PDF compil
 ```bash
 make informe   # compila con la imagen texlive/texlive en Docker (incluye la clase llncs)
 ```
+
+Para una demostración, `docs/DEMO.md` reúne los comandos de `make`, las opciones del compilador y cómo compilar y probar el código C generado.
