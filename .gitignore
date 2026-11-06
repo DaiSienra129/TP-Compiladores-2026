@@ -8,6 +8,9 @@ __pycache__/
 .venv/
 .pytest_cache/
 *.vscode/
-build/prueba_regex
 *.exe
-build/bench/
+# Salidas generadas en build/; solo se versionan el ejemplo de make valgrind
+build/*
+!build/main.c
+!build/identificador.c
+!build/identificador.h

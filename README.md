@@ -163,6 +163,25 @@ $ uv run python src/main.py --tree <(printf '(a|b)*c[0-9]\n')
 
 `tests/test_examples.py` verifica cada ejemplo con cadenas que debe aceptar y rechazar, traduciendo su AST a una expresión del módulo `re` de Python.
 
+### Generación de código C
+
+| Opción | Efecto |
+|--------|--------|
+| `--code`, `-c` | Imprime la cantidad de estados de cada autómata y el código C99 generado |
+| `-o salida` | Escribe `salida.c` y `salida.h` |
+| `-f nombre` | Nombre de la función generada (por defecto, `validar_<archivo>`) |
+| `--main` | Junto con `-o`, escribe además `salida_main.c`, un programa de prueba |
+
+El `.c` generado contiene solo la función de validación, sin `main`, para incluirla en otro proyecto (por ejemplo, el firmware de un microcontrolador). Para probarla en la PC, `--main` genera un programa que valida cada cadena recibida por argumento, o cada línea de la entrada estándar si no hay argumentos. Imprime `ACEPTA` o `rechaza` y termina con código 1 si alguna cadena se rechazó:
+
+```bash
+uv run python src/main.py examples/patente_argentina.regex -o build/patentes -f validar_patente --main
+gcc -std=c99 build/patentes.c build/patentes_main.c -o build/patentes
+build/patentes AB123CD abc123
+```
+
+Ese programa usa `stdio`, así que no sirve para medir memoria con Valgrind (véase `make valgrind`).
+
 ---
 
 ## 🔎 Análisis semántico y tabla de símbolos
