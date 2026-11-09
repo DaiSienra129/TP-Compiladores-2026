@@ -78,6 +78,56 @@ En sistemas embebidos e IoT la memoria y el procesamiento son limitados, y mucha
 
 Para resolver esto, proponemos \textbf{Regex2AFD}, un compilador que hace todo el trabajo pesado en tiempo de compilación (en la PC \emph{host}) y genera una función C muy liviana, $O(n)$, que solo recorre una tabla de transiciones estática. No hace falta ningún motor de expresiones regulares en ejecución.
 
+\section{Metodología de Desarrollo}\label{sec:metodologia}
+
+Regex2AFD se desarrolló de forma asistida por inteligencia artificial (IA),
+combinando dos enfoques: el Desarrollo Dirigido por Especificaciones y el
+Desarrollo Dirigido por Tests. El principio que ordena el trabajo es que
+\emph{el equipo especifica y audita, y la IA implementa}: ningún código
+producido por la IA forma parte de la entrega sin haber pasado antes la
+suite de pruebas.
+
+\subsection{Del informe a la especificación}
+
+El punto de partida es este informe. Con lo visto en la cátedra (las fases
+clásicas de un compilador) el equipo definió la idea, el objetivo, el
+alcance, las transformaciones del motor y los escenarios de prueba que
+demuestran que el objetivo se cumple. De ese documento se derivaron
+tareas acotadas (por ejemplo, el analizador léxico, las definiciones con
+tabla de símbolos, el motor de autómatas), cada una con sus requisitos y
+su criterio de aceptación, que se entregaron a la IA como especificación.
+% TODO: indicar dónde se conservan las especificaciones entregadas a la IA.
+
+\subsection{Los tests como mecanismo de auditoría}
+
+El criterio de aceptación de cada tarea se expresó como pruebas
+automáticas con \texttt{pytest}. La suite completa tiene 264 pruebas y
+combina cuatro clases:
+\begin{itemize}
+  \item \textbf{Unitarias y de integración:} cada fase y cada
+        transformación, incluidos los mensajes de error con su posición.
+  \item \textbf{De caracterización:} fijan el comportamiento observado
+        del código existente antes de modificarlo, para detectar
+        regresiones.
+  \item \textbf{Diferenciales:} comparan el resultado contra
+        implementaciones ajenas al código evaluado.
+  \item \textbf{De propiedades no funcionales:} ausencia de memoria
+        dinámica (Valgrind) y tiempo de ejecución frente a
+        \texttt{regex.h}.
+\end{itemize}
+Esto da a la auditoría una base independiente de la IA: el módulo
+\texttt{re} de Python, \texttt{regex.h} de POSIX y Valgrind actúan como
+oráculos que no comparten errores con el código generado.
+
+\subsection{Alcance de la metodología}
+
+Las pruebas funcionaron como una compuerta de aceptación, dado que no seguimos un ciclo estricto de escribir primero la prueba y luego el código. 
+Por ejemplo, en el analizador sintáctico se partió de una suite de caracterización sobre el código inicial, y las pruebas de la Sección ~\ref{sec:pruebas} se
+incorporaron para auditar los módulos del motor. 
+Además, la validación tiene un alcance acotado, ya que el fuzzing de 1500 cadenas compara el simulador del AFD (no el binario C) contra \texttt{re}, que opera sobre
+caracteres, mientras que el código C opera sobre bytes.
+% TODO: ajustar este párrafo si se amplía la validación contra el C real.
+
 % ============================================================================
 \section{Arquitectura General del Compilador}
 % ============================================================================
@@ -219,7 +269,7 @@ int validar_id(const char *s) {
 La función no usa \texttt{malloc} (asignación de memoria), no depende de nada externo y hace un solo acceso a la matriz por cada carácter.
 
 % ============================================================================
-\section{Escenarios de Prueba y Evaluación}
+\section{Escenarios de Prueba y Evaluación} \label{sec:pruebas}
 % ============================================================================
 Para comprobar que el compilador funciona bien armamos pruebas que se pueden repetir. Todas forman parte de la suite de \texttt{pytest} (264 pruebas, todas aprobadas) y las dos últimas también se ejecutan con \texttt{make valgrind} y \texttt{make bench}:
 \begin{enumerate}
