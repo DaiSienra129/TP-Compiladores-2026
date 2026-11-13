@@ -1,5 +1,5 @@
 % ============================================================================
-%  Regex2AFD: Compilador de Expresiones Regulares a Código C Optimizado
+%  NotFlex: Compilador de Expresiones Regulares a Código C Optimizado
 %  para Entornos Embebidos
 %  Formato: Springer LNCS (clase llncs) -- Ingeniería en Informática, UGD
 %  Compilar con pdfLaTeX (Overleaf incluye llncs.cls por defecto).
@@ -55,10 +55,10 @@
 % ============================================================================
 %  Frontmatter
 % ============================================================================
-\title{Regex2AFD: Compilador de Expresiones Regulares a Código C Optimizado para Entornos Embebidos}
-\titlerunning{Regex2AFD}
+\title{NotFlex: Compilador de Expresiones Regulares a Código C Optimizado para Entornos Embebidos}
+\titlerunning{NotFlex}
 
-\author{Hillebrand Giuliano \and Sienra Daiana \and Gonzalez Martin}
+\author{Hillebrand Giuliano \and Sienra Daiana \and González Martín}
 
 
 \institute{Universidad Gastón Dachary, Posadas, Misiones, Argentina}
@@ -66,7 +66,7 @@
 \maketitle
 
 \begin{abstract}
-Este trabajo presenta \textbf{Regex2AFD}, un compilador hecho en Python que toma una expresión regular y genera un autómata finito determinista (AFD) mínimo, junto con código C listo para usar en sistemas embebidos e IoT. El código generado no usa memoria dinámica ni librerías externas, y recorre la cadena en tiempo lineal $O(n)$. El frontend realiza el análisis léxico, sintáctico y semántico de la expresión regular, con una tabla de símbolos para las definiciones con nombre, y arma el Árbol de Sintaxis Abstracta (AST). Después, el motor aplica en orden Thompson, subconjuntos (agrupando los caracteres en clases de equivalencia) y minimización de Hopcroft. Las pruebas son reproducibles: Valgrind confirma que el código generado no hace ninguna reserva de memoria dinámica, la función generada resultó entre 2,2 y 11,5 veces más rápida que \texttt{regex.h} de POSIX, y sus resultados coinciden con los del módulo \texttt{re} de Python.
+NotFlex es  un compilador que toma una expresión regular y genera un autómata finito determinista y código C (estándar C99) listo para ser utilzado en sistemas embebidos e IoT. El código C generado es 2,2 y 11,5 veces más rápido que usar \texttt{regex.h} de POSIX dado que no utiliza memoria dinámica ni librerías externas. Además, el código C generado puede recorrer una cadena en tiempo lineal $\mathcal{O}(n)$. El compilador se divide en frontend y backend. En el frontend donde se realiza el análisis léxico, sintáctico, semántico y donde se arma el Árbol de Sintaxis Exacta; y en el backend el motor de autómatas aplica la construcción de Thompson, subconjuntos que agrupan caracteres en clases de equivalencia y minimización de Hopcroft.
 
 \keywords{Compiladores \and Expresiones Regulares \and Autómatas Finitos \and Sistemas Embebidos \and Minimización de Hopcroft \and Código C Optimizado.}
 \end{abstract}
@@ -74,59 +74,43 @@ Este trabajo presenta \textbf{Regex2AFD}, un compilador hecho en Python que toma
 % ============================================================================
 \section{Introducción}
 % ============================================================================
-En sistemas embebidos e IoT la memoria y el procesamiento son limitados, y muchas veces hay que validar cadenas de texto (identificadores, tramas de sensores, comandos por puerto serie). Hay dos formas comunes de hacerlo y las dos tienen problemas: los validadores hechos a mano con \texttt{if/switch} anidados son largos y es fácil equivocarse, y las librerías de expresiones regulares (\texttt{regex.h} de POSIX o PCRE2) gastan mucha memoria y usan asignación dinámica. Además, su tiempo de ejecución depende de la implementación: las que usan \emph{backtracking}, como PCRE2, pueden tardar un tiempo exponencial con ciertos patrones.
+El foco de nuestro proyecto son los sistemas embebidos e IoT (Internet de las Cosas). En este contexto, la memoria y la capacidad de procesamiento son recursos limitados, y en ocasiones se necesita validar cadenas de texto, como tramas obtenidas por sensores, identificadores o comando por puerto serie. Para abordar estos problemas existen dos maneras de hacerlo, pero ambas presentan sus desventajas:
+\begin{itemize}
+    \item Escribir un validador a mano, a base de \texttt{if/switch} anidados que pueden ser complejos y donde es fácil equivocarse.
+    \item Implementar una librería de expresiones regulares, como \texttt{regex.h} de POSIX que ocupan mucho de estos escasos recursos recién mencionados, porque incluso utilizan asignación de memoria dinámica. Además, si la librería implementada utiliza backtracking, como PCRE2, podría llegar a tardar un tiempo exponencial al utilizarse con ciertos patrones.
+\end{itemize}
 
-Para resolver esto, proponemos \textbf{Regex2AFD}, un compilador que hace todo el trabajo pesado en tiempo de compilación (en la PC \emph{host}) y genera una función C muy liviana, $O(n)$, que solo recorre una tabla de transiciones estática. No hace falta ningún motor de expresiones regulares en ejecución.
+Como solución ante estas dificultades, proponemos NotFlex. Un compilador que hace el trabajo pesado en tiempo de compilación y dada una expresión regular de entrada, genera como salida una función C en el estándar C99 muy ligera que recorre una tabla de transiciones estática, por lo que no utiliza asignación dinámica de memoria y permite dedicar los limitados recursos a otras necesidades, ya que no depende de librerías adicionales ni de un motor de expresiones regulares.
 
 \section{Metodología de Desarrollo}\label{sec:metodologia}
 
-Regex2AFD se desarrolló de forma asistida por inteligencia artificial (IA),
-combinando dos enfoques: el Desarrollo Dirigido por Especificaciones y el
-Desarrollo Dirigido por Tests. El principio que ordena el trabajo es que
-\emph{el equipo especifica y audita, y la IA implementa}: ningún código
-producido por la IA forma parte de la entrega sin haber pasado antes la
-suite de pruebas.
+NotFlex se desarrolló de forma asistida por inteligencia artificial (IA). Implementamos un enfoque de Desarrollo Dirigido por Especificaciones y una suite de tests que nos permitió auditar el funcionamiento del código generado por IA para luego ser integrado oficialmente al proyecto. Esto NO quiere decir que el trabajo es una caja negra, realizado en su totalidad por IA a través de un "Claude, hacelo, y no cometas errores". Los integrantes del equipo estuvimos muy involucrados en el desarrollo del proyecto y vale destacar que este informe es 100\% de nuestra autoría y 0\% hehco con IA. 
+Podemos resumir nuestro flujo de trabajo en \emph{el equipo investiga y especifica, luego la IA implementa, el equipo testea y audita para y finalmente el equipo integra el desarrollo al proyecto entregable}.
 
-\subsection{Del informe a la especificación}
+\subsection{De la investigación, al informe y luego a la especificación}
 
-El punto de partida es este informe. Con lo visto en la cátedra (las fases
-clásicas de un compilador) el equipo definió la idea, el objetivo, el
+A medida que se desarrollaba el cursado de la cátedra de Compiladores, el equipo continuamente detallaba este informe con las necesidades y limitaciones que nuestro trabajo integrador debía cumplir. Con lo visto en la cátedra (las fases
+clásicas de un compilador) definimos la idea, el objetivo, el
 alcance, las transformaciones del motor y los escenarios de prueba que
-demuestran que el objetivo se cumple. De ese documento se derivaron
-tareas acotadas (por ejemplo, el analizador léxico, las definiciones con
-tabla de símbolos, el motor de autómatas), cada una con sus requisitos y
-su criterio de aceptación, que se entregaron a la IA como especificación.
-% TODO: indicar dónde se conservan las especificaciones entregadas a la IA.
+demuestran que el objetivo se cumple. Y a partir de este documento derivamos tareas acotadas y precisas (por ejemplo, el analizador léxico, las definiciones con
+tabla de símbolos, el motor de autómatas), acompañadas de sus requisitos y
+su criterio de aceptación que luego entregamos a la IA como especificación.
+
+Las IAs utilizadas fueron:
+\begin{itemize}
+    \item Gemini 4 Argón: modelo de inteligencia artificial de frontera desarrollado por Google DeepMind, diseñado específicamente para ofrecer un razonamiento profundo dinámico, inteligencia de alto nivel y el máximo rendimiento en flujos de trabajo complejos y exigentes.
+    \item Claude Opus 5.5: modelo insignia de Anthropic diseñado específicamente para el trabajo de conocimiento de alta complejidad y el desarrollo de software agéntico de larga duración.
+\end{itemize}
 
 \subsection{Los tests como mecanismo de auditoría}
 
-El criterio de aceptación de cada tarea se expresó como pruebas
-automáticas con \texttt{pytest}. La suite completa tiene 264 pruebas y
-combina cuatro clases:
+Para establecer una tarea dentro del proyecto, el criterio de aceptación de cada una de ellas se expresó como pruebas automáticas implementadas con \texttt{pytest}. El equipo fue definiendo los tests iterativamente\footnote{Algunos tests fueron generados con IA debido a su naturaleza compleja o extensa, como el test que se encarga de hacerle fuzzing al simulador del AFD con 1500 cadenas aleatorias para poder validar su funcionamiento.} a medida que el desarrollo del proyecto progresaba, al final del desarrollo, La suite completa cuenta con 268 pruebas y combina cuatro tipos:
 \begin{itemize}
-  \item \textbf{Unitarias y de integración:} cada fase y cada
-        transformación, incluidos los mensajes de error con su posición.
-  \item \textbf{De caracterización:} fijan el comportamiento observado
-        del código existente antes de modificarlo, para detectar
-        regresiones.
-  \item \textbf{Diferenciales:} comparan el resultado contra
-        implementaciones ajenas al código evaluado.
-  \item \textbf{De propiedades no funcionales:} ausencia de memoria
-        dinámica (Valgrind) y tiempo de ejecución frente a
-        \texttt{regex.h}.
+  \item \textbf{Unitarias y de integración:} Son unitarios y de integracón porque verifican que cada pieza o parte haga lo que se supone que debe hacer, por si misma (unitaria) o conectada a otras (integración). Detectan errores de lógica local como un mensaje de error en una posición equivocada pero están limitados a casos que el equipo pensó de antemano y no pueden testear lo que a nadie se le ocurrió. 
+  \item \textbf{De caracterización:} Fueron escritos sobre el código existente para establecer lo que el código hacía en un momento determinado y nos permitieron modificar el código existente sin accidentalmente romper algo. Su objetivo es detectar regresiones, por ejemplo, si en algún momento alguien cambiaba accidentalmente como se tokenizaba el caracter \\ el test fallaba. También están limitados a que si accidentalmente se definía un test y se configuraba erroneamente, el test podría dar como válido un error.
+  \item \textbf{Diferenciales:} Nos permiten comparar la salida del compilador con la de una implementación independiente. Por ejemplo, hay un test que se encarga de traducir el AST a una expresión de la librería re y verifica 12 ejemplos predefinidos con cadenas aceptadas y rechazadas
+  \item \textbf{De propiedades no funcionales:} Este tipo de test no verificaba el correcto funcionamiento del código, si no que nos permitieron validar nuestro objetivo de generar código C ligero y muy optimizado para entornos con recursos limitados. Este tipo de tests nos permitió realizar las afirmaciones en la Sección ~\ref{sec:pruebas}
 \end{itemize}
-Esto da a la auditoría una base independiente de la IA: el módulo
-\texttt{re} de Python, \texttt{regex.h} de POSIX y Valgrind actúan como
-oráculos que no comparten errores con el código generado.
-
-\subsection{Alcance de la metodología}
-
-Las pruebas funcionaron como una compuerta de aceptación, dado que no seguimos un ciclo estricto de escribir primero la prueba y luego el código. 
-Por ejemplo, en el analizador sintáctico se partió de una suite de caracterización sobre el código inicial, y las pruebas de la Sección ~\ref{sec:pruebas} se
-incorporaron para auditar los módulos del motor. 
-Además, la validación tiene un alcance acotado, ya que el fuzzing de 1500 cadenas compara el simulador del AFD (no el binario C) contra \texttt{re}, que opera sobre
-caracteres, mientras que el código C opera sobre bytes.
-% TODO: ajustar este párrafo si se amplía la validación contra el C real.
 
 % ============================================================================
 \section{Arquitectura General del Compilador}
@@ -171,7 +155,7 @@ El sistema sigue una serie de pasos secuenciales y conectados, clásico de un co
   \node[titulo, anchor=north east] at (e2.north east) {Síntesis};
   \node[titulo, anchor=north east] at (e3.north east) {Generación};
 \end{tikzpicture}
-\caption{Pasos secuenciales de compilación de Regex2AFD en tres etapas.}
+\caption{Pasos secuenciales de compilación de NotFlex en tres etapas.}
 \label{fig:pipeline}
 \end{figure}
 
@@ -287,7 +271,7 @@ Para comprobar que el compilador funciona bien armamos pruebas que se pueden rep
 \setlength{\tabcolsep}{12pt}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
-\textbf{Ejemplo} & \textbf{Regex2AFD} & \textbf{\texttt{regex.h}} & \textbf{Aceleración} \\
+\textbf{Ejemplo} & \textbf{NotFlex} & \textbf{\texttt{regex.h}} & \textbf{Aceleración} \\
 \midrule
 Identificador de C & 6,7 ns  & 76,5 ns  & 11,5$\times$ \\
 IPv4               & 7,4 ns  & 62,1 ns  & 8,4$\times$ \\
@@ -303,19 +287,19 @@ La función generada fue entre 2,2 y 11,5 veces más rápida. La ventaja es mayo
 % ============================================================================
 \section{Comparación con Trabajos Relacionados}
 % ============================================================================
-Las librerías como \texttt{regex.h} o \texttt{PCRE2} trabajan en tiempo de ejecución. Regex2AFD, en cambio, sigue la idea de herramientas ya conocidas como \texttt{re2c} y \texttt{Ragel}, que hacen todo el trabajo durante la compilación (Tabla~\ref{tab:comparacion}).
+Las librerías como \texttt{regex.h} o \texttt{PCRE2} trabajan en tiempo de ejecución. NotFlex, en cambio, sigue la idea de herramientas ya conocidas como \texttt{re2c} y \texttt{Ragel}, que hacen todo el trabajo durante la compilación (Tabla~\ref{tab:comparacion}).
 
-El tiempo de ejecución de \texttt{regex.h} depende de la biblioteca que lo implemente. La de glibc, por ejemplo, no usa \emph{backtracking} salvo con retroreferencias: con patrones como \texttt{(a|aa)*b} o \texttt{(a+)+b}, que hacen explotar a los motores con \emph{backtracking}, medimos un tiempo lineal en cadenas de hasta 16\,000 caracteres. La diferencia de Regex2AFD es que el tiempo lineal está garantizado por construcción y no depende de la biblioteca de la plataforma.
+El tiempo de ejecución de \texttt{regex.h} depende de la biblioteca que lo implemente. La de glibc, por ejemplo, no usa \emph{backtracking} salvo con retroreferencias: con patrones como \texttt{(a|aa)*b} o \texttt{(a+)+b}, que hacen explotar a los motores con \emph{backtracking}, medimos un tiempo lineal en cadenas de hasta 16\,000 caracteres. La diferencia de NotFlex es que el tiempo lineal está garantizado por construcción y no depende de la biblioteca de la plataforma.
 
 \begin{table}[htbp]
 \centering
-\caption{Comparación de Regex2AFD frente a las alternativas tradicionales.}
+\caption{Comparación de NotFlex frente a las alternativas tradicionales.}
 \label{tab:comparacion}
 \small
 \renewcommand{\arraystretch}{1.15}
 \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.1cm} *{3}{>{\centering\arraybackslash}X}@{}}
 \toprule
-\textbf{Característica} & \textbf{Validador a Mano} & \textbf{Librería (\texttt{regex.h})} & \textbf{Regex2AFD} \\
+\textbf{Característica} & \textbf{Validador a Mano} & \textbf{Librería (\texttt{regex.h})} & \textbf{NotFlex} \\
 \midrule
 \textbf{Dependencias externas} & No         & Sí                              & \textbf{No} \\
 \textbf{Memoria dinámica}      & No         & Sí                              & \textbf{No ($0$ bytes)} \\
@@ -329,7 +313,7 @@ El tiempo de ejecución de \texttt{regex.h} depende de la biblioteca que lo impl
 % ============================================================================
 \section{Conclusiones}
 % ============================================================================
-\textbf{Regex2AFD} logró lo que buscábamos: una serie de pasos automatizados que se ejecutan de forma encadenada y van de la expresión regular al código C. Integramos las fases clásicas de un compilador (análisis léxico, sintáctico y semántico con tabla de símbolos, transformaciones de autómatas, minimización y generación de C). El resultado es una función en C que no usa memoria dinámica y siempre recorre la cadena en tiempo lineal, ideal para dispositivos con recursos limitados. Las pruebas lo confirman: Valgrind no registra ninguna reserva en el \emph{heap}, y la función generada coincide con \texttt{regex.h} en todas las cadenas probadas y es entre 2,2 y 11,5 veces más rápida.
+\textbf{NotFlex} logró lo que buscábamos: una serie de pasos automatizados que se ejecutan de forma encadenada y van de la expresión regular al código C. Integramos las fases clásicas de un compilador (análisis léxico, sintáctico y semántico con tabla de símbolos, transformaciones de autómatas, minimización y generación de C). El resultado es una función en C que no usa memoria dinámica y siempre recorre la cadena en tiempo lineal, ideal para dispositivos con recursos limitados. Las pruebas lo confirman: Valgrind no registra ninguna reserva en el \emph{heap}, y la función generada coincide con \texttt{regex.h} en todas las cadenas probadas y es entre 2,2 y 11,5 veces más rápida.
 
 % ============================================================================
 \section*{Glosario}
