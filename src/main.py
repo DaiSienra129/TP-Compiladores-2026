@@ -1,9 +1,12 @@
 """Punto de entrada del compilador.
 
-Uso: python src/main.py [--tree] [--code] [-o salida] [-f funcion] [--main] [archivo.regex]
+Uso: python src/main.py [--tree] [--code] [-o salida] [-f funcion] [--main]
+                        [archivo.regex | -e patron]
 
 Con un archivo, ejecuta las fases de análisis (formato, léxica, sintáctica y
 semántica) e imprime la tabla de símbolos, las advertencias y el AST expandido.
+Con `-e patron` (o `--expr patron`), compila el patrón escrito en la línea de
+comandos, tal cual, sin definiciones con nombre; la función por defecto es `validar`.
 Sin archivo, muestra una demostración con un patrón fijo. Con `--tree` (o `-t`),
 el AST se imprime como árbol de texto en lugar de en una sola línea.
 
@@ -25,11 +28,11 @@ from hopcroft import minimize_dfa
 from lexer import RegexLexer
 from parser import RegexParser
 from semantic import analyze
-from source import parse_source
+from source import Source, parse_source
 from thompson import ast_to_nfa
 
 USAGE = ("Uso: python src/main.py [--tree] [--code] [-o salida] [-f funcion] [--main] "
-         "[archivo.regex]")
+         "[archivo.regex | -e patron]")
 TREE_FLAGS = {"--tree", "-t"}
 CODE_FLAGS = {"--code", "-c"}
 
@@ -105,9 +108,27 @@ def compile_file(path: str, tree: bool = False, show_code: bool = False,
                  with_main: bool = False) -> None:
     """Analiza un archivo .regex, imprime el resultado y opcionalmente genera C99."""
     with open(path, encoding="utf-8") as file:
-        result = analyze(parse_source(file.read()))
+        source = parse_source(file.read())
+    default_fn = _sanitize_func_name(f"validar_{Path(path).stem}")
+    compile_source(source, f"Archivo: {path}", default_fn, tree, show_code, output_base,
+                   func_name, with_main)
 
-    print(f"Archivo: {path}")
+
+def compile_pattern(pattern: str, tree: bool = False, show_code: bool = False,
+                    output_base: str | None = None, func_name: str | None = None,
+                    with_main: bool = False) -> None:
+    """Compila un patrón recibido por línea de comandos, tomado literalmente."""
+    compile_source(Source([], pattern, 1, 0), f"Patrón: {pattern}", "validar", tree,
+                   show_code, output_base, func_name, with_main)
+
+
+def compile_source(source: Source, header: str, default_fn: str, tree: bool = False,
+                   show_code: bool = False, output_base: str | None = None,
+                   func_name: str | None = None, with_main: bool = False) -> None:
+    """Analiza el código fuente, imprime el resultado y opcionalmente genera C99."""
+    result = analyze(source)
+
+    print(header)
     print("\nTabla de símbolos:")
     if len(result.symbols) == 0:
         print("  (sin definiciones)")
@@ -125,7 +146,6 @@ def compile_file(path: str, tree: bool = False, show_code: bool = False,
     print_ast("Árbol AST expandido", result.ast, tree)
 
     if show_code or output_base is not None:
-        default_fn = _sanitize_func_name(f"validar_{Path(path).stem}")
         run_backend(result.ast, func_name or default_fn, show_code, output_base, with_main)
 
 
@@ -136,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     output_base: str | None = None
     func_name: str | None = None
     with_main = False
+    expr: str | None = None
     positional: list[str] = []
 
     i = 0
@@ -159,6 +180,12 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             func_name = raw_args[i + 1]
             i += 1
+        elif arg in ("-e", "--expr"):
+            if i + 1 >= len(raw_args) or raw_args[i + 1] == "":
+                print(f"Error: la opción '{arg}' requiere un patrón\n{USAGE}", file=sys.stderr)
+                return 1
+            expr = raw_args[i + 1]
+            i += 1
         elif arg.startswith("-"):
             print(f"Error: opción desconocida '{arg}'\n{USAGE}", file=sys.stderr)
             return 1
@@ -172,6 +199,16 @@ def main(argv: list[str] | None = None) -> int:
     if with_main and output_base is None:
         print(f"Error: la opción '--main' requiere '-o salida'\n{USAGE}", file=sys.stderr)
         return 1
+    if expr is not None and positional:
+        print(f"Error: no se puede usar '-e' junto con un archivo\n{USAGE}", file=sys.stderr)
+        return 1
+    if expr is not None:
+        try:
+            compile_pattern(expr, tree, show_code, output_base, func_name, with_main)
+        except CompilerError as error:
+            print(error, file=sys.stderr)
+            return 1
+        return 0
     if not positional:
         demo(tree, show_code, output_base, func_name, with_main)
         return 0

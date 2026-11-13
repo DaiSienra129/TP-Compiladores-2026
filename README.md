@@ -90,6 +90,15 @@ uv run python src/main.py ejemplo.regex -o build/salida -f validar --main
 gcc -std=c99 build/salida.c build/salida_main.c -o build/salida
 build/salida cadena1 cadena2
 ```
+
+Compilar un patrón escrito directamente en la línea de comandos, sin archivo `.regex` (se toma tal cual, sin definiciones con nombre; la función por defecto se llama `validar`):
+
+```bash
+uv run python src/main.py -e '[0-9]+' --code
+uv run python src/main.py -e '-?[0-9]+(\.[0-9]+)?' -o build/num --main
+gcc -std=c99 build/num.c build/num_main.c -o build/num
+build/num -3.14 42 1.
+```
 ## Pruebas
  
 ```bash

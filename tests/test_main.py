@@ -199,3 +199,67 @@ def test_generated_test_program_compiles_and_validates(tmp_path):
     run = subprocess.run([str(binary)], input="AB123CD\r\nABC123\n", capture_output=True, text=True)
     assert run.returncode == 0
     assert run.stdout.splitlines() == ["ACEPTA  AB123CD", "ACEPTA  ABC123"]
+
+
+# --- Patrón en línea de comandos (-e / --expr) ----------------------------------
+
+@pytest.mark.parametrize("flag", ["-e", "--expr"])
+def test_expr_flag_compiles_inline_pattern(flag, capsys):
+    assert main([flag, "[0-9]+"]) == 0
+    captured = capsys.readouterr()
+    assert "Patrón: [0-9]+" in captured.out
+    assert "Árbol AST expandido" in captured.out
+    assert captured.err == ""
+
+
+def test_expr_pattern_is_taken_verbatim_not_as_comment(capsys):
+    assert main(["-e", "#[0-9]+"]) == 0
+    assert "Patrón: #[0-9]+" in capsys.readouterr().out
+
+
+def test_expr_with_invalid_pattern_reports_error(capsys):
+    assert main(["-e", "[^abc]"]) == 1
+    captured = capsys.readouterr()
+    assert captured.err != ""
+    assert "Árbol AST" not in captured.out
+
+
+def test_expr_with_undefined_reference_reports_error(capsys):
+    assert main(["-e", "{DIGITO}+"]) == 1
+    assert "DIGITO" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("args", [["-e"], ["-e", ""], ["--expr"]])
+def test_expr_flag_requires_a_pattern(args, capsys):
+    assert main(args) == 1
+    captured = capsys.readouterr()
+    assert f"la opción '{args[0]}' requiere un patrón" in captured.err
+    assert captured.out == ""
+
+
+def test_expr_and_file_together_are_rejected(capsys):
+    assert main(["-e", "a", PATENTE]) == 1
+    captured = capsys.readouterr()
+    assert "no se puede usar '-e' junto con un archivo" in captured.err
+    assert captured.out == ""
+
+
+def test_expr_uses_validar_as_default_function_name(tmp_path, capsys):
+    base = tmp_path / "num"
+    assert main(["-e", "[0-9]+", "-o", str(base), "--main"]) == 0
+    capsys.readouterr()
+    assert "validar(s)" in (tmp_path / "num_main.c").read_text(encoding="utf-8")
+
+
+@pytest.mark.skipif(CC is None, reason="se necesita gcc o clang")
+def test_expr_generated_program_compiles_and_validates(tmp_path):
+    base = tmp_path / "num"
+    assert main(["-e", "[0-9]+", "-o", str(base), "-f", "es_numero", "--main"]) == 0
+    binary = tmp_path / "num_bin"
+    subprocess.run(
+        [CC, "-std=c99", "-Wall", "-Wextra", "-Werror",
+         str(base.with_suffix(".c")), str(tmp_path / "num_main.c"), "-o", str(binary)],
+        check=True)
+    run = subprocess.run([str(binary), "123", "12a"], capture_output=True, text=True)
+    assert run.returncode == 1
+    assert run.stdout.splitlines() == ["ACEPTA  123", "rechaza 12a"]
