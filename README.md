@@ -1,4 +1,4 @@
-# Regex2AFD 
+# NotFlex 
 Es un compilador que convierte una expresión regular en una función en C99 que valida cadenas. Pendado para microcontroladores y sistemas embebidos con poca RAM y memoria Flash.
 
 Trabajo práctico integrador de Compiladores (2026), Universidad Gastón Dachary.

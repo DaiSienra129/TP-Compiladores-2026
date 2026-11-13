@@ -4,7 +4,7 @@ Uso: uv run python bench/benchmark.py [--iteraciones N] [ejemplo.regex ...]
 
 Para cada ejemplo:
 
-1. Genera el validador C99 con Regex2AFD.
+1. Genera el validador C99 con NotFlex.
 2. Traduce el mismo AST a una expresión regular extendida de POSIX (ERE), anclada
    con ^...$ para validar la cadena completa, igual que el validador.
 3. Arma un conjunto de cadenas de prueba (las muestras del ejemplo y mutaciones
@@ -208,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"{opts.iteraciones} validaciones por ejemplo (tiempo medio por cadena)\n")
-    print(f"{'ejemplo':<22} {'Regex2AFD':>11} {'regex.h':>11} {'aceleración':>12}"
+    print(f"{'ejemplo':<22} {'NotFlex':>11} {'regex.h':>11} {'aceleración':>12}"
           f" {'aceptadas':>10} {'discrepancias':>14}")
     total_mismatches = 0
     for name in opts.ejemplos:

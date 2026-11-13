@@ -1,4 +1,4 @@
-/* Programa de prueba del validador generado por Regex2AFD para identificadores de C.
+/* Programa de prueba del validador generado por NotFlex para identificadores de C.
  *
  * No usa stdio a propósito: la primera escritura en stdout hace que glibc reserve
  * un buffer en el heap, y Valgrind informaría esa reserva aunque la función

@@ -62,7 +62,7 @@ def generate_c_code(
     header_name: str | None = None,
 ) -> tuple[str, str]:
     """Genera el contenido de los archivos (.c, .h) en estándar C99 para el AFD dado."""
-    guard = f"REGEX2AFD_{func_name.upper()}_H"
+    guard = f"NOTFLEX_{func_name.upper()}_H"
     state_type = "unsigned char" if dfa.num_states <= 256 else "unsigned short"
 
     h_lines = [
@@ -150,7 +150,7 @@ def write_c_files(
     return c_path, h_path
 
 TEST_MAIN = """\
-/* Programa de prueba generado por Regex2AFD para {func_name}().
+/* Programa de prueba generado por NotFlex para {func_name}().
  *
  * Uso: {program} cadena...       valida cada argumento
  *      {program} < archivo       valida cada línea de la entrada estándar

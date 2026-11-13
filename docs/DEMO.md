@@ -1,4 +1,4 @@
-# Guía de demostración de Regex2AFD
+# Guía de demostración de NotFlex
 
 Comandos para una demostración o presentación. Se ejecutan desde la raíz del repositorio.
 

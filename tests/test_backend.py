@@ -100,7 +100,7 @@ def test_all_example_files_compile_and_match_readme_samples():
 
 
 def test_fuzzing_against_python_re():
-    """Fuzzing: compara Regex2AFD contra re.fullmatch en cientos de cadenas aleatorias."""
+    """Fuzzing: compara NotFlex contra re.fullmatch en cientos de cadenas aleatorias."""
     patterns = [
         r"(a|b)*abb",
         r"[a-zA-Z_][a-zA-Z0-9_]*",
