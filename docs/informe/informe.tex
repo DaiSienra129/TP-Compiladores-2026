@@ -84,8 +84,8 @@ Como solución ante estas dificultades, proponemos NotFlex. Un compilador que ha
 
 \section{Metodología de Desarrollo}\label{sec:metodologia}
 
-NotFlex se desarrolló de forma asistida por inteligencia artificial (IA). Implementamos un enfoque de Desarrollo Dirigido por Especificaciones y una suite de tests que nos permitió auditar el funcionamiento del código generado por IA para luego ser integrado oficialmente al proyecto. Esto NO quiere decir que el trabajo es una caja negra, realizado en su totalidad por IA a través de un "Claude, hacelo, y no cometas errores". Los integrantes del equipo estuvimos muy involucrados en el desarrollo del proyecto y vale destacar que este informe es 100\% de nuestra autoría y 0\% hehco con IA. 
-Podemos resumir nuestro flujo de trabajo en \emph{el equipo investiga y especifica, luego la IA implementa, el equipo testea y audita para y finalmente el equipo integra el desarrollo al proyecto entregable}.
+NotFlex se desarrolló de forma asistida por inteligencia artificial (IA). Implementamos un enfoque de Desarrollo Dirigido por Especificaciones y una suite de tests que nos permitió auditar el funcionamiento del código generado por IA para luego ser integrado oficialmente al proyecto. Esto NO quiere decir que el trabajo es una caja negra, realizado en su totalidad por IA a través de un "Claude, hacelo, y no cometas errores". Los integrantes del equipo estuvimos muy involucrados en el desarrollo del proyecto y vale destacar que este informe es 100\% de nuestra autoría y 0\% hecho con IA. 
+Podemos resumir nuestro flujo de trabajo en \emph{el equipo investiga y especifica, luego la IA implementa, el equipo testea y audita para que finalmente el equipo integre el desarrollo al proyecto entregable}.
 
 \subsection{De la investigación, al informe y luego a la especificación}
 
@@ -104,71 +104,35 @@ Las IAs utilizadas fueron:
 
 \subsection{Los tests como mecanismo de auditoría}
 
-Para establecer una tarea dentro del proyecto, el criterio de aceptación de cada una de ellas se expresó como pruebas automáticas implementadas con \texttt{pytest}. El equipo fue definiendo los tests iterativamente\footnote{Algunos tests fueron generados con IA debido a su naturaleza compleja o extensa, como el test que se encarga de hacerle fuzzing al simulador del AFD con 1500 cadenas aleatorias para poder validar su funcionamiento.} a medida que el desarrollo del proyecto progresaba, al final del desarrollo, La suite completa cuenta con 268 pruebas y combina cuatro tipos:
+Para establecer una tarea dentro del proyecto, el criterio de aceptación de cada una de ellas se expresó como pruebas automáticas implementadas con \texttt{pytest}. El equipo fue definiendo los tests iterativamente a medida que el desarrollo del proyecto progresaba, al final del desarrollo, La suite completa cuenta con 268 pruebas y combina cuatro tipos:
 \begin{itemize}
   \item \textbf{Unitarias y de integración:} Son unitarios y de integracón porque verifican que cada pieza o parte haga lo que se supone que debe hacer, por si misma (unitaria) o conectada a otras (integración). Detectan errores de lógica local como un mensaje de error en una posición equivocada pero están limitados a casos que el equipo pensó de antemano y no pueden testear lo que a nadie se le ocurrió. 
   \item \textbf{De caracterización:} Fueron escritos sobre el código existente para establecer lo que el código hacía en un momento determinado y nos permitieron modificar el código existente sin accidentalmente romper algo. Su objetivo es detectar regresiones, por ejemplo, si en algún momento alguien cambiaba accidentalmente como se tokenizaba el caracter \\ el test fallaba. También están limitados a que si accidentalmente se definía un test y se configuraba erroneamente, el test podría dar como válido un error.
-  \item \textbf{Diferenciales:} Nos permiten comparar la salida del compilador con la de una implementación independiente. Por ejemplo, hay un test que se encarga de traducir el AST a una expresión de la librería re y verifica 12 ejemplos predefinidos con cadenas aceptadas y rechazadas
-  \item \textbf{De propiedades no funcionales:} Este tipo de test no verificaba el correcto funcionamiento del código, si no que nos permitieron validar nuestro objetivo de generar código C ligero y muy optimizado para entornos con recursos limitados. Este tipo de tests nos permitió realizar las afirmaciones en la Sección ~\ref{sec:pruebas}
+  \item \textbf{Diferenciales:} Nos permiten comparar la salida del compilador con la de una implementación independiente. Por ejemplo, hay un test que se encarga de traducir el AST a una expresión de la librería re y verifica 12 ejemplos predefinidos con cadenas aceptadas y rechazadas.
+  \item \textbf{De propiedades no funcionales:} Este tipo de test no verificaba el correcto funcionamiento del código, si no que nos permitieron validar nuestro objetivo de generar código C ligero y muy optimizado para entornos con recursos limitados. Este tipo de tests nos permitió realizar las afirmaciones en la Sección ~\ref{sec:pruebas}.
 \end{itemize}
 
 % ============================================================================
 \section{Arquitectura General del Compilador}
 % ============================================================================
-El sistema sigue una serie de pasos secuenciales y conectados, clásico de un compilador, dividido en tres etapas (Fig.~\ref{fig:pipeline}):
-
-\begin{figure}[htbp]
-\centering
-\begin{tikzpicture}[
-  node distance=4mm and 5mm,
-  paso/.style={draw, rounded corners=2pt, align=center, font=\scriptsize,
-               minimum height=8mm, text width=2.1cm},
-  flecha/.style={-{Stealth[length=2mm]}, thick},
-  etapa/.style={draw=black!45, dashed, rounded corners=4pt,
-                inner xsep=5pt, inner ysep=10pt},
-  titulo/.style={font=\scriptsize\bfseries, inner sep=1pt}]
-  % Etapa de análisis (frontend)
-  \node[paso] (in) {Archivo\\\texttt{.regex}};
-  \node[paso, right=of in]  (lex) {Análisis léxico\\(tokens)};
-  \node[paso, right=of lex] (sin) {Análisis sintáctico\\(AST)};
-  \node[paso, right=of sin] (sem) {Análisis semántico\\(AST expandido)};
-  \node[paso, dashed, above=3mm of sem] (tab) {Tabla de símbolos};
-  \draw[flecha] (in) -- (lex);
-  \draw[flecha] (lex) -- (sin);
-  \draw[flecha] (sin) -- (sem);
-  \draw[{Stealth[length=2mm]}-{Stealth[length=2mm]}, dashed] (tab) -- (sem);
-  % Etapa de síntesis (motor de autómatas)
-  \node[paso, below=14mm of lex] (tho) {Thompson\\(AFND)};
-  \node[paso, right=of tho, text width=2.8cm] (sub) {Subconjuntos y clases\\de equivalencia (AFD)};
-  \node[paso, right=of sub] (hop) {Hopcroft\\(AFD mínimo)};
-  \draw[flecha] (sem.south) -- ++(0,-5mm) -| (tho.north);
-  \draw[flecha] (tho) -- (sub);
-  \draw[flecha] (sub) -- (hop);
-  % Etapa de generación (backend)
-  \node[paso, below=14mm of hop] (gen) {Código C99\\(\texttt{.c}/\texttt{.h})};
-  \draw[flecha] (hop) -- (gen);
-  % Marcos de cada etapa
-  \node[etapa, fit=(in)(sem)(tab)] (e1) {};
-  \node[etapa, fit=(tho)(hop)] (e2) {};
-  \node[etapa, fit=(gen)] (e3) {};
-  \node[titulo, anchor=north west] at (e1.north west) {Análisis};
-  \node[titulo, anchor=north east] at (e2.north east) {Síntesis};
-  \node[titulo, anchor=north east] at (e3.north east) {Generación};
-\end{tikzpicture}
-\caption{Pasos secuenciales de compilación de NotFlex en tres etapas.}
-\label{fig:pipeline}
+NotFlex se basa en las etapas tradicionales de un compilador y en las mismas bases teóricas que Flex (Thompson, subconjuntos, clases de equivalencia). Por lo que el pipeline de compilación de NotFlex sigue una serie de pasos secuenciales y conectados, clásicos de un compilador, dividido en tres etapas (Fig.~\ref{fig:pipeline}):
+\begin{figure} [h]
+    \centering
+    \includegraphics[width=1\linewidth]{Diagrama en blanco - Página 1.png}
+    \caption{Pasos secuenciales de compilación de NotFlex en tres etapas}
+    \label{fig:pipeline}
 \end{figure}
 
 \begin{enumerate}
-  \item \textbf{Frontend (Análisis):} El analizador léxico separa la expresión en tokens, el parser descendente recursivo arma el AST respetando la precedencia de los operadores, y el análisis semántico resuelve las definiciones con nombre usando una tabla de símbolos. Cada error se informa con su línea y su posición.
+  \item \textbf{Frontend (Análisis):} El analizador léxico separa la expresión en tokens, el parser descendente recursivo arma el AST respetando la precedencia de los operadores, y el análisis semántico resuelve las definiciones con nombre usando una tabla de símbolos.
   \item \textbf{Motor de Autómatas (Síntesis):} Pasa el AST a un AFND con Thompson y lo convierte en AFD con subconjuntos, agrupando en el mismo paso los 256 valores posibles de un byte en clases de equivalencia. Por último aplica Hopcroft, un método que reduce al mínimo el número de estados del AFD.
-  \item \textbf{Backend (Generación de Código):} Genera el archivo C (\texttt{.c}/\texttt{.h}) con la tabla de transiciones y el bucle de validación.
+  \item \textbf{Backend (Generación de Código):} Genera el archivo C en el estándar C99 crenado un \texttt{.c} y un \texttt{.h} con la tabla de transiciones y el bucle de validación.
 \end{enumerate}
 
 % ============================================================================
 \section{Especificación Sintáctica y Léxica}
 % ============================================================================
-El compilador acepta expresiones regulares, es decir, lenguajes de Tipo~3 en la jerarquía de Chomsky. La sintaxis soportada es:
+Nuestro proyecto acepta expresiones regulares, es decir, lenguajes de Tipo~3 en la jerarquía de Chomsky. Decidimos acotar la sintaxis de las expresiones regulares de entrada a las siguientes expresiones con el objetivo de no sobrecargar el proyecto:
 \begin{itemize}
   \item \textbf{Literales y Concatenación:} \texttt{ab}
   \item \textbf{Alternancia (Unión):} \texttt{a|b}
@@ -180,7 +144,7 @@ El compilador acepta expresiones regulares, es decir, lenguajes de Tipo~3 en la 
 \end{itemize}
 
 \subsection{Gramática}
-El parser descendente recursivo implementa la siguiente gramática, con una función por no terminal:
+Para el análisis sintáctico decidimos implementar un parser descendente recursivo, con una función por cada no terminal, que sigue la siguiente grmática: 
 \begin{center}
 \small
 \begin{tabular}{@{}r@{\ $\rightarrow$\ }l@{}}
@@ -190,10 +154,11 @@ El parser descendente recursivo implementa la siguiente gramática, con una func
 \textit{átomo}   & \texttt{CHAR} $\mid$ \texttt{CLASS} $\mid$ \texttt{REF} $\mid$ \texttt{(} \textit{expr} \texttt{)}
 \end{tabular}
 \end{center}
-La precedencia, de mayor a menor, es: cuantificadores, concatenación y unión. El conjunto PRIMERO de todos los no terminales es $\{\texttt{CHAR}, \texttt{CLASS}, \texttt{REF}, \texttt{(}\}$, y en cada repetición los tokens que la continúan son disjuntos de su conjunto SIGUIENTE, por lo que la gramática es LL(1). El analizador léxico agrega un token de fin de entrada que cumple el rol del símbolo~\$.
+En cuanto a la precedencia, tenemos, de mayor a menor, los cuantificadores, la concatenación y la unión.
+Ademas, el conjunto PRIMERO de todos los no terminales es $\{\texttt{CHAR}, \texttt{CLASS}, \texttt{REF}, \texttt{(}\}$, y en cada repetición los tokens que la continúan son disjuntos de su conjunto SIGUIENTE. Por eso podemos afirmar que la gramática es LL(1). Por último, nuestro analizador léxico agrega un token de fin de entrada que cumple el rol del símbolo~\$.
 
 \subsection{Análisis semántico y tabla de símbolos}\label{sec:semantica}
-Para dar nombre a las subexpresiones, la entrada admite definiciones al estilo de Flex, separadas del patrón principal por \texttt{\%\%}:
+Para poder darle nombre a las subexpresiones, nuestro compilador admite definiciones al estilo de Flex, que se separan del patrón principal por \texttt{\%\%}, a continuacion mostramos un ejemplo:
 \begin{lstlisting}[basicstyle=\ttfamily\scriptsize, frame=tb, columns=fullflexible]
 DIGITO      = [0-9]
 ENTERO      = {DIGITO}+
@@ -203,31 +168,43 @@ HUMEDAD     = HUM={ENTERO}
 %%
 {TEMPERATURA};{HUMEDAD}
 \end{lstlisting}
-La fase semántica registra cada definición en la tabla de símbolos y rechaza las definiciones duplicadas, las referencias sin definición, las referencias circulares (informando el camino, por ejemplo \texttt{A -> B -> A}) y los caracteres fuera del alfabeto de 256. Las definiciones que no se usan generan una advertencia. Su resultado es el AST del patrón principal con las referencias ya expandidas, que es la entrada del motor de autómatas.
-
+En la fase semántica registramos cada definición en la tabla de símbolos y al mismo tiempo verificamos que no haya errores. Rechazamos los siguientes casos:
+\begin{itemize}
+  \item Las definiciones duplicadas.
+  \item Las referencias sin definición.
+  \item Las referencias circulares, en las que informamos el camino completo, por ejemplo \texttt{A -> B -> A}.
+  \item Los caracteres fuera del alfabeto de 256 símbolos.
+  \end{itemize}
+Por otro lado, si hay definiciones que nunca se usan no las consideramos un error, sino que generamos una advertencia. Como resultado de esta fase obtenemos el AST del patrón principal con todas las referencias ya expandidas que luego pasa a ser la entrada del motor del autómata.
 
 % ============================================================================
 \section{Limitaciones y Trabajo Futuro}
 % ============================================================================
-\begin{itemize}
-  \item \textbf{Limitaciones:} Solo sirve para patrones que se conocen al compilar. Tampoco soporta negación de clases (\texttt{[\textasciicircum{}a-z]}), cuantificadores acotados (\texttt{a\{3,5\}}), anclas (\texttt{\textasciicircum}, \texttt{\$}), clases abreviadas (\texttt{\textbackslash d}, \texttt{\textbackslash w}) ni retroreferencias (estas últimas no se pueden hacer con lenguajes regulares). Todas ellas producen un error léxico en lugar de interpretarse como literales, para que el comportamiento coincida con el del módulo \texttt{re} de Python.
-  \item \textbf{Trabajo Futuro:} (i)~Generar el código con \texttt{switch/case} como alternativa a las tablas; (ii)~Juntar varios patrones en un solo autómata, para llegar a un generador de analizadores léxicos completo.
+ \textbf{Limitaciones:} Nuestro compilador solo sirve para patrones que se conocen al momento de compilación. Además, decidimos no soportar, con el objetivo de no sobrecargar el proyecto, los siguientes componentes de una expresión regular:
+ \begin{itemize}
+  \item La negación de clases (\verb|[^a-z]|).
+  \item Los cuantificadores acotados (\verb|a{3,5}|).
+  \item Las anclas (\verb|^|, \verb|$|).
+  \item Las clases abreviadas (\verb|\d|, \verb|\w|).
+  \item Las retroreferencias (backreference).
 \end{itemize}
+
+Cuando aparece alguna de estas construcciones, el compilador produce un error léxico en lugar de interpretarla como un literal, para que el comportamiento coincida con el del módulo re de Python.
 
 % ============================================================================
 \section{Transformaciones e Implementación del Motor}
 % ============================================================================
-El motor aplica tres transformaciones, una después de la otra (junto con la construcción del AST y la generación de C, el pipeline completo tiene cinco):
+Nuestro motor de autómatas aplica tres transformaciones, una después de la otra. Si sumamos la construcción del AST y la generación de código C, el pipeline completo tiene cinco etapas.
 \begin{enumerate}
-  \item \textbf{Construcción de Thompson:} Recorre el AST de forma recursiva y arma el AFND, uniendo los pedazos con transiciones épsilon ($\epsilon$).
-  \item \textbf{Construcción de Subconjuntos con Clases de Equivalencia:} Antes de construir el AFD, junta los caracteres que se comportan igual en todo el autómata. Para un identificador de C (\texttt{[a-zA-Z\_][a-zA-Z0-9\_]*}) los 256 valores de un byte quedan en solo 3 clases (\emph{letra}, \emph{dígito}, \emph{otro}). Después saca el no determinismo calculando las $\epsilon$-clausuras, pero recorriendo esas pocas clases en lugar de 256 caracteres, y arma una tabla de transiciones más chica.
-  \item \textbf{Minimización de Hopcroft:} Junta los estados que no se pueden distinguir. Cada estado que se elimina achica el arreglo que se genera.
+  \item \textbf{Construcción de Thompson:} Recorremos el AST de forma recursiva y armamos el AFND, uniendo los distintos fragmentos con transiciones épsilon ($\epsilon$).
+  \item \textbf{Construcción de Subconjuntos con Clases de Equivalencia:} Antes de construir el AFD, agrupamos los caracteres que se comportan igual en todo el autómata. Por ejemplo, para un identificador de C (\texttt{[a-zA-Z\_][a-zA-Z0-9\_]*}) los 256 valores posibles de un byte quedan reducidos a solo 3 clases (letra, dígito y otro). Después eliminamos el no determinismo calculando las $\epsilon$-clausuras, pero recorriendo esas pocas clases en lugar de los 256 caracteres, lo que nos da una tabla de transiciones más chica.
+  \item \textbf{Minimización de Hopcroft:} Juntamos los estados que no se pueden distinguir entre sí. Cada estado que eliminamos achica el arreglo que se genera al final.
 \end{enumerate}
 
 % ============================================================================
 \section{Generación de Código C (Backend)}\label{sec:backend}
 % ============================================================================
-El backend genera en código C estándar (C99) la tabla de transiciones y el recorrido de la cadena. Un ejemplo, para un identificador, podría verse así:
+En el backend se genera el código C en el estándar C99, la tabla de transiciones y el recorrido de la cadena. A modo de ejemplo, para un identificador el resultado podría verse así:
 
 \begin{lstlisting}[style=cstyle]
 /* Mapeo de los 256 valores de un byte a 3 clases de equivalencia */
@@ -250,17 +227,17 @@ int validar_id(const char *s) {
 }
 \end{lstlisting}
 
-La función no usa \texttt{malloc} (asignación de memoria), no depende de nada externo y hace un solo acceso a la matriz por cada carácter.
+Como se puede ver la función no usa \texttt{malloc} (asignación de memoria dinámica), no depende de nada externo y hace un solo acceso a la matriz por cada carácter de la cadena.
 
 % ============================================================================
 \section{Escenarios de Prueba y Evaluación} \label{sec:pruebas}
 % ============================================================================
-Para comprobar que el compilador funciona bien armamos pruebas que se pueden repetir. Todas forman parte de la suite de \texttt{pytest} (264 pruebas, todas aprobadas) y las dos últimas también se ejecutan con \texttt{make valgrind} y \texttt{make bench}:
+Para comprobar que NotFlex cumple con nuestros objetivos de ser eficiente en la utilización de recursos escasos se preparó una suite de pruebas que se pueden repetir. Todas forman parte de la suite de \texttt{pytest} y las dos últimas también se pueden correr con \texttt{make valgrind} (para evaluar el uso de memoria dinámica) y \texttt{make bench} (para comparar velocidad contra regex.h de POSIX):
 \begin{enumerate}
-  \item \textbf{Pruebas Unitarias:} Cubren el análisis léxico, sintáctico y semántico, los mensajes de error con su posición, la interfaz de línea de comandos y cada transformación del motor (por ejemplo, que el identificador de C produzca exactamente las 3 clases y la tabla de $3 \times 3$ de la Sección~\ref{sec:backend}). Los doce ejemplos incluidos (IPv4, URL, correo, fecha, UUID, trama de un sensor, entre otros) se verifican con cadenas que deben aceptarse y rechazarse.
-  \item \textbf{Validación Lógica:} Se hace \emph{fuzzing}: se comparan los resultados del AFD mínimo con el módulo \texttt{re} de Python en 1500 cadenas aleatorias, que incluyen casos borde como la cadena vacía, saltos de línea y tabulaciones. Además, el código C generado se compila con \texttt{gcc} y se prueba directamente.
-  \item \textbf{Consumo de Memoria:} Se compila el código generado de cuatro ejemplos junto con un programa de prueba y se lo ejecuta con Valgrind. En todos los casos el resumen informa \texttt{0 allocs, 0 frees, 0 bytes allocated}, sin errores de memoria. El programa de prueba no usa \texttt{stdio}, porque la biblioteca de C reserva en el \emph{heap} el buffer de la salida estándar en la primera escritura, y Valgrind contaría esa reserva aunque la función generada no haga ninguna.
-  \item \textbf{Desempeño Comparativo:} Se traduce el AST de cada ejemplo a una expresión regular extendida de POSIX y se mide el tiempo medio de $10^6$ validaciones con la función generada y con \texttt{regexec()} de \texttt{regex.h}, sin contar la compilación de la expresión (\texttt{regcomp()}). Antes de medir se verifica que ambos clasifiquen igual 1000 cadenas por ejemplo (muestras y mutaciones aleatorias): no hubo ninguna discrepancia. La Tabla~\ref{tab:desempeno} muestra los resultados.
+  \item \textbf{Pruebas Unitarias:} Cubrimos cada fase del compilador (léxico, sintáctico y semántico), los mensajes de error con su posición, la línea de comandos y cada transformación del motor. Por ejemplo, verificamos que el identificador de C genere exactamente 3 clases y la tabla de  $3 \times 3$  de la Sección~\ref{sec:backend}). También probamos los doce ejemplos incluidos (IPv4, URL, correo, fecha, UUID y trama de sensor, entre otros) con cadenas que deben aceptarse y otras que deben rechazarse.
+  \item \textbf{Validación Lógica:} Hacemos fuzzing, esto significa que comparamos los resultados del AFD mínimo con los del módulo re de Python en 1500 cadenas aleatorias, que incluyen casos borde como la cadena vacía, saltos de línea y tabulaciones. Además, compilamos con gcc el código C generado y lo probamos directamente.
+  \item \textbf{Consumo de Memoria:} Compilamos el código generado de cuatro ejemplos junto con un programa de prueba y se lo ejecuta con Valgrind. En todos los casos el resumen informa \texttt{0 allocs, 0 frees, 0 bytes allocated}, sin errores de memoria. Ese programa de prueba no usa \texttt{stdio}, porque la biblioteca de C reserva en el \emph{heap} el buffer de la salida estándar en la primera escritura, y Valgrind contaría esa reserva aunque la función generada no haga ninguna.
+  \item \textbf{Desempeño Comparativo:} traducimos el AST de cada ejemplo a una expresión regular extendida de POSIX y medimos el tiempo medio de $10^6$ validaciones con nuestra función generada y con \texttt{regexec()} de \texttt{regex.h}, sin contar la compilación de la expresión (\texttt{regcomp()}). Antes de medir comprobamos que ambas clasifiquen igual 1000 cadenas por ejemplo (muestras y mutaciones aleatorias): no hubo ninguna discrepancia. La Tabla~\ref{tab:desempeno} muestra los resultados.
 \end{enumerate}
 
 \begin{table}[htbp]
@@ -282,14 +259,21 @@ UUID               & 38,7 ns & 83,3 ns  & 2,2$\times$ \\
 \end{tabular}
 \end{table}
 
-La función generada fue entre 2,2 y 11,5 veces más rápida. La ventaja es mayor en los ejemplos de cadenas cortas (identificador, IPv4), lo que sugiere que allí pesa más el costo fijo de cada llamada a \texttt{regexec()}; en las cadenas largas domina el recorrido carácter por carácter de ambos.
+La función generada fue entre 2,2 y 11,5 veces más rápida. La ventaja es mayor en los ejemplos de cadenas cortas (identificador, IPv4), esto sugiere que ahí pesa más el costo fijo de cada llamada a \texttt{regexec()}; y en las cadenas largas domina el recorrido carácter por carácter de ambos.
 
 % ============================================================================
 \section{Comparación con Trabajos Relacionados}
 % ============================================================================
-Las librerías como \texttt{regex.h} o \texttt{PCRE2} trabajan en tiempo de ejecución. NotFlex, en cambio, sigue la idea de herramientas ya conocidas como \texttt{re2c} y \texttt{Ragel}, que hacen todo el trabajo durante la compilación (Tabla~\ref{tab:comparacion}).
-
-El tiempo de ejecución de \texttt{regex.h} depende de la biblioteca que lo implemente. La de glibc, por ejemplo, no usa \emph{backtracking} salvo con retroreferencias: con patrones como \texttt{(a|aa)*b} o \texttt{(a+)+b}, que hacen explotar a los motores con \emph{backtracking}, medimos un tiempo lineal en cadenas de hasta 16\,000 caracteres. La diferencia de NotFlex es que el tiempo lineal está garantizado por construcción y no depende de la biblioteca de la plataforma.
+Nosotros no fuimos los primeros en pensar en esta idea, por lo que es razonable comparar nuestro proyecto con aquellas soluciones existentes. 
+Existen librerías como \texttt{regex.h} o \texttt{PCRE2} que trabajan en tiempo de ejecución, pero a diferencia de éstas, NotFlex se inspira más en otras soluciones como \texttt{re2c} y \texttt{Ragel} que funcionan en tiempo de compilación.
+(Tabla~\ref{tab:comparacion}).
+Anteriormente mencionamos que NotFlex está inspirado en Flex dado que se basa en la misma base teórica, pero no hay que confundirse, no hacen lo mismo, por eso lo llamamos "NotFlex":
+\begin{itemize}
+    \item Flex: toma muchas reglas y produce un scanner que reconoce tokens dentro de un flujo de texto y,
+    \item NotFlex: toma un patrón y produce una función C99 mínima que valida una cadena completa, sin memoria dinámica ni librerías, pensada para sistemas embebidos.
+\end{itemize}
+Y recién mencionamos \texttt{re2c} y \texttt{Ragel}, y si uno conoce estas herramientas, sabrá que ámbas sí generan código C sin librerías de ejecución, y hasta soporta más lenguaje de salida. ¿Entonces que nos diferencia de estas herramientas?
+Quizás la respuesta sea un poco decepcionante, pero es realista, ya que re2c y Ragel generan código equivalente y son herramientas maduras; no pretendemos superarlas. Nuestro aporte es implementar y documentar el pipeline completo, con una interfaz más directa (de un patrón a una función lista) y una metodología de desarrollo auditada con tests.
 
 \begin{table}[htbp]
 \centering
@@ -313,7 +297,7 @@ El tiempo de ejecución de \texttt{regex.h} depende de la biblioteca que lo impl
 % ============================================================================
 \section{Conclusiones}
 % ============================================================================
-\textbf{NotFlex} logró lo que buscábamos: una serie de pasos automatizados que se ejecutan de forma encadenada y van de la expresión regular al código C. Integramos las fases clásicas de un compilador (análisis léxico, sintáctico y semántico con tabla de símbolos, transformaciones de autómatas, minimización y generación de C). El resultado es una función en C que no usa memoria dinámica y siempre recorre la cadena en tiempo lineal, ideal para dispositivos con recursos limitados. Las pruebas lo confirman: Valgrind no registra ninguna reserva en el \emph{heap}, y la función generada coincide con \texttt{regex.h} en todas las cadenas probadas y es entre 2,2 y 11,5 veces más rápida.
+\textbf{NotFlex} logró lo que buscábamos: una serie de pasos automatizados que se ejecutan de forma encadenada y van de la expresión regular al código C. Integramos las fases clásicas de un compilador (análisis léxico, sintáctico y semántico con tabla de símbolos, transformaciones de autómatas, minimización y generación de C). El resultado es una función en C que no usa memoria dinámica y siempre recorre la cadena en tiempo lineal, ideal para dispositivos con recursos limitados. Las pruebas nos respaldan, ya que Valgrind no registra ninguna reserva en el \emph{heap}, y la función generada coincide con \texttt{regex.h} en todas las cadenas probadas y es entre 2,2 y 11,5 veces más rápida.
 
 % ============================================================================
 \section*{Glosario}
