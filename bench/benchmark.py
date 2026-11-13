@@ -159,6 +159,7 @@ int main(int argc, char **argv) {{
     double t1 = now_ns();
     for (long k = 0; k < n; k++) sink += regexec(&re, pool[k % POOL_SIZE], 0, NULL, 0) == 0;
     double t2 = now_ns();
+    (void)sink;
 
     printf("%ld %ld %ld %zu %.0f %.0f\\n", n, discrepancias, aceptadas, (size_t)POOL_SIZE,
            t1 - t0, t2 - t1);
